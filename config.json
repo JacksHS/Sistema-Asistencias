@@ -1,0 +1,6 @@
+{
+  "requerirLlaveNavegador": false,
+  "requerirLlaveDispositivo": false,
+  "horaLimiteTardanza": "10:05",
+  "requerirMismaRed": false
+}

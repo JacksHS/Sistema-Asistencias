@@ -1,0 +1,26 @@
+// use prisma-next
+
+model Usuario {
+  id              String       @id @default(uuid())
+  usuario         String       @unique @default("")
+  nombre_completo String       @default("")
+  rol             String       @default("USER") // Rol is better as String if enums aren't fully supported or just use enum
+  password        String       
+  device_hash     String?      
+  device_uuid     String?      
+  
+  asistencias Asistencia[] 
+  
+  creado_en   TimestamptzString     @default(now())
+  actualizado temporal.updatedAtString()
+}
+
+model Asistencia {
+  id          String   @id @default(uuid())
+  usuario_id  String
+  fecha_hora  TimestamptzString @default(now()) 
+  
+  usuario     Usuario  @relation(fields: [usuario_id], references: [id])
+  
+  @@index([usuario_id, fecha_hora])
+}
