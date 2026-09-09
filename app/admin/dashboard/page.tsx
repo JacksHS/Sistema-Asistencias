@@ -25,7 +25,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
 
   // Si no hay filtro de fecha, proteger el servidor limitando a los últimos 1000 registros
   // Prisma Composer permite where(filter), usémoslo.
-  let asistenciasRaw = []
+  let asistenciasRaw: any[] = []
   try {
     const query = Object.keys(whereFilter).length > 0 
       ? db.orm.public.Asistencia.where(whereFilter) 
