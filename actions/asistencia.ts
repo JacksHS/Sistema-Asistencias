@@ -43,7 +43,10 @@ export async function registrarAsistencia(tokenEscaneado: string) {
       return { error: 'Código QR inválido o corrupto. Asegúrate de escanear el QR del Kiosco.' }
     }
 
-    if (payload.type !== 'kiosco_qr' || !payload.timestamp) {
+    const qrType = payload.t || payload.type
+    const qrTime = payload.ts || payload.timestamp
+
+    if ((qrType !== 'k' && qrType !== 'kiosco_qr') || !qrTime) {
       return { error: 'El código QR no es válido para asistencia. No es un código del Kiosco.' }
     }
 
@@ -60,7 +63,7 @@ export async function registrarAsistencia(tokenEscaneado: string) {
       // Preferir x-real-ip si el proxy lo provee, de lo contrario la IP más lejana en x-forwarded-for
       const workerIp = realIp || (forwarded ? forwarded.split(',')[0].trim() : 'unknown')
 
-      const kioskIp = payload.kioskIp
+      const kioskIp = payload.ip || payload.kioskIp
       if (kioskIp && workerIp !== kioskIp) {
         return { error: 'Debes estar conectado a la misma red (WiFi) que el Kiosco para marcar asistencia.' }
       }
@@ -68,11 +71,16 @@ export async function registrarAsistencia(tokenEscaneado: string) {
 
     // 4. REGLA DE 45 SEGUNDOS (aumentado de 15s para tolerar cold starts de Vercel + latencia de celulares)
     const serverTime = Date.now()
-    const qrTime = payload.timestamp
     const diffSegundos = (serverTime - qrTime) / 1000
 
     if (diffSegundos > 45 || diffSegundos < 0) {
       return { error: `Código QR expirado (${diffSegundos.toFixed(0)}s). El Kiosco ya generó uno nuevo, escanea el actual.` }
+    }
+
+    // 4.5 VERIFICAR QUE EL USUARIO REALMENTE EXISTA EN ESTA BASE DE DATOS
+    const usuarioDB = await db.orm.public.Usuario.where({ id: usuarioId }).first()
+    if (!usuarioDB) {
+      return { error: 'Tu sesión no pertenece a un usuario válido en esta base de datos. Cierra sesión arriba a la derecha y vuelve a ingresar con tu usuario y contraseña.' }
     }
 
     // 5. REGLA DE ENTRADA Y SALIDA
@@ -123,10 +131,14 @@ export async function registrarAsistencia(tokenEscaneado: string) {
 
   } catch (error: any) {
     console.error("Error al registrar en DB:", error)
-    const msg = error?.message?.includes('connect')
-      ? 'Error de conexión con la base de datos. Intenta de nuevo en unos segundos.'
-      : 'Hubo un problema guardando tu registro. Intenta escanear de nuevo.'
-    return { error: msg }
+    const errorMsg = error?.message || String(error)
+    if (errorMsg.includes('connect') || errorMsg.includes('SSL') || errorMsg.includes('timeout')) {
+      return { error: 'Error de conexión con la base de datos. Intenta de nuevo en unos segundos.' }
+    }
+    if (errorMsg.includes('foreign key') || errorMsg.includes('violates foreign key constraint')) {
+      return { error: 'Tu sesión no pertenece a un usuario válido en esta base de datos. Cierra sesión y vuelve a ingresar.' }
+    }
+    return { error: `Error en base de datos: ${errorMsg}` }
   } finally {
     // Liberar el candado después de 2 segundos — siempre se ejecuta, sin importar qué
     setTimeout(() => pendingRequests.delete(usuarioId), 2000)

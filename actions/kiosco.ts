@@ -20,10 +20,9 @@ export async function generarTokenKiosco() {
 
   const timestamp = Date.now()
   
-  // Creamos un token encriptado que contiene exactamente la hora en que fue generado
-  // por el servidor, no por el cliente. Le ponemos un TTL de 2 minutos a nivel JWT, 
-  // pero la regla de 45 segundos se validará manualmente al escanear.
-  const token = await new SignJWT({ type: 'kiosco_qr', timestamp, kioskIp })
+  // Creamos un token encriptado compacto para reducir el tamaño del QR al mínimo
+  // y permitir que las cámaras enfoquen al instante con píxeles mucho más grandes.
+  const token = await new SignJWT({ t: 'k', ts: timestamp, ip: kioskIp })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('2m') 

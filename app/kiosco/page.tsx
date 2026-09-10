@@ -105,7 +105,7 @@ export default function KioscoPage() {
           <QRCodeSVG 
             value={token} 
             size={380} 
-            level="H"
+            level="L"
             includeMargin={false}
             className="rounded-xl w-full h-auto"
           />
