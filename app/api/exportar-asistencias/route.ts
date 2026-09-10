@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   const hasta = searchParams.get('hasta')
 
   // 3. Obtener configuración (hora límite de tardanza)
-  const config = getConfig()
+  const config = await getConfig()
   const [limiteHora, limiteMin] = (config.horaLimiteTardanza || '09:00').split(':').map(Number)
 
   try {

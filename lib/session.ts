@@ -11,7 +11,7 @@ export async function encrypt(payload: any) {
   return new SignJWT(payload)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime('7d')
+    .setExpirationTime('12h')
     .sign(encodedKey)
 }
 
@@ -27,7 +27,7 @@ export async function decrypt(session: string | undefined = '') {
 }
 
 export async function createSession(userId: string, rol: string) {
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 días
+  const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000) // 12 horas
   const session = await encrypt({ userId, rol, expiresAt })
 
   const cookieStore = await cookies()

@@ -56,7 +56,7 @@ export async function login(prevState: any, formData: FormData) {
   // 3. Verificación de Seguridad Híbrida (Solo para USER / Trabajador)
   if (usuario.rol === 'USER') {
     const { getConfig } = await import('@/lib/configManager')
-    const config = getConfig()
+    const config = await getConfig()
 
     if (!deviceHash || !deviceUuid) {
       return { error: 'No se pudo obtener la huella del dispositivo' }

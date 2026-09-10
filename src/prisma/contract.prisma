@@ -24,3 +24,11 @@ model Asistencia {
   
   @@index([usuario_id, fecha_hora])
 }
+
+model Configuracion {
+  id                      String  @id @default("singleton")
+  requerir_llave_navegador Boolean @default(true)
+  requerir_llave_dispositivo Boolean @default(true)
+  hora_limite_tardanza    String  @default("09:00")
+  requerir_misma_red      Boolean @default(false)
+}

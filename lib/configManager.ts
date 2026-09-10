@@ -1,7 +1,4 @@
-import fs from 'fs'
-import path from 'path'
-
-const CONFIG_PATH = path.join(process.cwd(), 'config.json')
+import { db } from '@/src/prisma/db'
 
 export interface AppConfig {
   requerirLlaveNavegador: boolean
@@ -17,29 +14,64 @@ const defaultConfig: AppConfig = {
   requerirMismaRed: false
 }
 
-export const getConfig = (): AppConfig => {
+export const getConfig = async (): Promise<AppConfig> => {
   try {
-    if (fs.existsSync(CONFIG_PATH)) {
-      const parsed = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'))
-      // Validación básica
-      if (typeof parsed.horaLimiteTardanza !== 'string' || !/^\d{2}:\d{2}$/.test(parsed.horaLimiteTardanza)) {
-        parsed.horaLimiteTardanza = '09:00'
-      }
-      return { ...defaultConfig, ...parsed }
+    const row = await db.orm.public.Configuracion.where({ id: 'singleton' }).first()
+    
+    if (!row) {
+      // Primera vez: crear la fila con defaults
+      await db.orm.public.Configuracion.create({
+        id: 'singleton',
+        requerir_llave_navegador: defaultConfig.requerirLlaveNavegador,
+        requerir_llave_dispositivo: defaultConfig.requerirLlaveDispositivo,
+        hora_limite_tardanza: defaultConfig.horaLimiteTardanza,
+        requerir_misma_red: defaultConfig.requerirMismaRed,
+      })
+      return defaultConfig
+    }
+
+    // Mapear de snake_case (BD) a camelCase (App)
+    return {
+      requerirLlaveNavegador: row.requerir_llave_navegador,
+      requerirLlaveDispositivo: row.requerir_llave_dispositivo,
+      horaLimiteTardanza: row.hora_limite_tardanza || '09:00',
+      requerirMismaRed: row.requerir_misma_red,
     }
   } catch (e) {
-    console.error("Error reading config", e)
+    console.error("Error reading config from DB:", e)
+    return defaultConfig
   }
-  return defaultConfig
 }
 
-export const setConfig = (newConfig: Partial<AppConfig>): AppConfig => {
-  const current = getConfig()
-  const updated = { ...current, ...newConfig }
+export const setConfig = async (newConfig: Partial<AppConfig>): Promise<AppConfig> => {
   try {
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(updated, null, 2))
+    const current = await getConfig()
+    const updated = { ...current, ...newConfig }
+
+    // Verificar si la fila existe
+    const existing = await db.orm.public.Configuracion.where({ id: 'singleton' }).first()
+    
+    if (existing) {
+      await db.orm.public.Configuracion.where({ id: 'singleton' }).update({
+        requerir_llave_navegador: updated.requerirLlaveNavegador,
+        requerir_llave_dispositivo: updated.requerirLlaveDispositivo,
+        hora_limite_tardanza: updated.horaLimiteTardanza,
+        requerir_misma_red: updated.requerirMismaRed,
+      })
+    } else {
+      await db.orm.public.Configuracion.create({
+        id: 'singleton',
+        requerir_llave_navegador: updated.requerirLlaveNavegador,
+        requerir_llave_dispositivo: updated.requerirLlaveDispositivo,
+        hora_limite_tardanza: updated.horaLimiteTardanza,
+        requerir_misma_red: updated.requerirMismaRed,
+      })
+    }
+
+    return updated
   } catch (e) {
-    console.error("Error writing config", e)
+    console.error("Error writing config to DB:", e)
+    const current = await getConfig()
+    return current
   }
-  return updated
 }

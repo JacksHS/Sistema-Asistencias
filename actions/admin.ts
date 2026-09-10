@@ -64,7 +64,7 @@ export async function guardarConfiguracion(config: any) {
 
   try {
     const { setConfig } = await import('@/lib/configManager')
-    setConfig(config)
+    await setConfig(config)
     revalidatePath('/admin/dashboard')
     return { success: 'Configuración guardada' }
   } catch (error) {

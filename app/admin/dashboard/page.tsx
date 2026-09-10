@@ -16,7 +16,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
   const trabajadores = (await db.orm.public.Usuario.where({ rol: 'USER' }).all())
     .sort((a, b) => a.nombre_completo.localeCompare(b.nombre_completo))
 
-  const config = getConfig()
+  const config = await getConfig()
   const [limiteHora, limiteMin] = (config.horaLimiteTardanza || '09:00').split(':').map(Number)
 
   // Construir filtros SQL para evitar desbordamiento de memoria

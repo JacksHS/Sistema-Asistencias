@@ -35,17 +35,21 @@ export async function registrarAsistencia(tokenEscaneado: string) {
         algorithms: ['HS256']
       })
       payload = verificado.payload
-    } catch (error) {
-      return { error: 'Código QR inválido o ha expirado. Escanea de nuevo.' }
+    } catch (error: any) {
+      // Diferenciar JWT expirado de token inválido/manipulado
+      if (error?.code === 'ERR_JWT_EXPIRED') {
+        return { error: 'El código QR ha expirado por completo. Pide que refresquen el Kiosco y escanea el nuevo QR.' }
+      }
+      return { error: 'Código QR inválido o corrupto. Asegúrate de escanear el QR del Kiosco.' }
     }
 
     if (payload.type !== 'kiosco_qr' || !payload.timestamp) {
-      return { error: 'El código QR no es válido para asistencia.' }
+      return { error: 'El código QR no es válido para asistencia. No es un código del Kiosco.' }
     }
 
     // 3.5 Validar Red (WiFi / IP) si está configurado
     const { getConfig } = await import('@/lib/configManager')
-    const config = getConfig()
+    const config = await getConfig()
     
     if (config.requerirMismaRed) {
       const { headers } = await import('next/headers')
@@ -62,13 +66,13 @@ export async function registrarAsistencia(tokenEscaneado: string) {
       }
     }
 
-    // 4. REGLA ESTRICTA DE 15 SEGUNDOS
+    // 4. REGLA DE 45 SEGUNDOS (aumentado de 15s para tolerar cold starts de Vercel + latencia de celulares)
     const serverTime = Date.now()
     const qrTime = payload.timestamp
     const diffSegundos = (serverTime - qrTime) / 1000
 
-    if (diffSegundos > 15 || diffSegundos < 0) {
-      return { error: `Código QR expirado (hace ${diffSegundos.toFixed(1)} seg). Estás intentando usar una foto antigua.` }
+    if (diffSegundos > 45 || diffSegundos < 0) {
+      return { error: `Código QR expirado (${diffSegundos.toFixed(0)}s). El Kiosco ya generó uno nuevo, escanea el actual.` }
     }
 
     // 5. REGLA DE ENTRADA Y SALIDA
@@ -117,9 +121,12 @@ export async function registrarAsistencia(tokenEscaneado: string) {
     const tipo = asistenciasHoy.length === 0 ? 'ENTRADA' : 'SALIDA'
     return { success: 'Asistencia Registrada Correctamente', tipo }
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error al registrar en DB:", error)
-    return { error: 'Hubo un problema guardando tu registro.' }
+    const msg = error?.message?.includes('connect')
+      ? 'Error de conexión con la base de datos. Intenta de nuevo en unos segundos.'
+      : 'Hubo un problema guardando tu registro. Intenta escanear de nuevo.'
+    return { error: msg }
   } finally {
     // Liberar el candado después de 2 segundos — siempre se ejecuta, sin importar qué
     setTimeout(() => pendingRequests.delete(usuarioId), 2000)

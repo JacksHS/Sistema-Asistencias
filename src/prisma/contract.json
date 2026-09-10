@@ -8,6 +8,10 @@
       "model": "Asistencia",
       "namespace": "public"
     },
+    "configuracion": {
+      "model": "Configuracion",
+      "namespace": "public"
+    },
     "usuario": {
       "model": "Usuario",
       "namespace": "public"
@@ -72,6 +76,67 @@
               },
               "namespaceId": "public",
               "table": "asistencia"
+            }
+          },
+          "Configuracion": {
+            "fields": {
+              "hora_limite_tardanza": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "requerir_llave_dispositivo": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
+              "requerir_llave_navegador": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
+              "requerir_misma_red": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {},
+            "storage": {
+              "fields": {
+                "hora_limite_tardanza": {
+                  "column": "hora_limite_tardanza"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "requerir_llave_dispositivo": {
+                  "column": "requerir_llave_dispositivo"
+                },
+                "requerir_llave_navegador": {
+                  "column": "requerir_llave_navegador"
+                },
+                "requerir_misma_red": {
+                  "column": "requerir_misma_red"
+                }
+              },
+              "namespaceId": "public",
+              "table": "configuracion"
             }
           },
           "Usuario": {
@@ -266,6 +331,63 @@
               },
               "uniques": []
             },
+            "configuracion": {
+              "columns": {
+                "hora_limite_tardanza": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "09:00"
+                  },
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "singleton"
+                  },
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "requerir_llave_dispositivo": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": true
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
+                "requerir_llave_navegador": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": true
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
+                "requerir_misma_red": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": false
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [],
+              "indexes": [],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": []
+            },
             "usuario": {
               "columns": {
                 "actualizado": {
@@ -351,7 +473,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "72ba4bdc77878dc97687947e9a780ba894b3863995a64e2ee1ffaa513ba8cc5a"
+    "storageHash": "24468f54fcb3ebdfea2f2f4df79f426ca421ca3c97dfd91ef8cb6bb964acc077"
   },
   "execution": {
     "executionHash": "e9fe2b7a2630cffc74a5ad99bf245081d9cae2cd5004028ca08cfc8692cdbdb4",
