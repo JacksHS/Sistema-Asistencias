@@ -44,7 +44,8 @@ export async function GET(request: Request) {
     if (asistenciasRaw.length > 5000) asistenciasRaw = asistenciasRaw.slice(-5000)
 
     // 6. Consolidar Entrada y Salida (Misma lógica que en el panel)
-    const timeZone = process.env.TZ || 'America/Lima'
+    const tzEnv = process.env.APP_TIMEZONE || process.env.TZ
+    const timeZone = (!tzEnv || tzEnv === ':UTC' || tzEnv.startsWith(':')) ? 'America/Lima' : tzEnv
     const rawConFechas = asistenciasRaw.map(a => {
       const fecha = new Date(a.fecha_hora)
       const fechaDivisor = new Intl.DateTimeFormat('es-ES', { 

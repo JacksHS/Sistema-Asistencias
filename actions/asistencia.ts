@@ -85,7 +85,8 @@ export async function registrarAsistencia(tokenEscaneado: string) {
 
     // 5. REGLA DE ENTRADA Y SALIDA
     // Para evitar bugs de Zona Horaria (UTC en Vercel vs Local), forzamos la zona horaria a la región del usuario.
-    const timeZone = process.env.TZ || 'America/Lima'
+    const tzEnv = process.env.APP_TIMEZONE || process.env.TZ
+    const timeZone = (!tzEnv || tzEnv === ':UTC' || tzEnv.startsWith(':')) ? 'America/Lima' : tzEnv
     const formatter = new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' })
     const parts = formatter.formatToParts(new Date())
     const year = parseInt(parts.find(p => p.type === 'year')!.value)

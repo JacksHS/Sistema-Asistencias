@@ -48,7 +48,8 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
   }
   
   // Mapear con fechas procesadas y ordenar de antiguo a nuevo
-  const timeZone = process.env.TZ || 'America/Lima'
+  const tzEnv = process.env.APP_TIMEZONE || process.env.TZ
+  const timeZone = (!tzEnv || tzEnv === ':UTC' || tzEnv.startsWith(':')) ? 'America/Lima' : tzEnv
   const rawConFechas = asistenciasRaw.map(a => {
     const fecha = new Date(a.fecha_hora)
     const fechaDivisor = new Intl.DateTimeFormat('es-ES', { 
