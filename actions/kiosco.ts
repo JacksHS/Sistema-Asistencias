@@ -1,6 +1,11 @@
 'use server'
 
 import { SignJWT } from 'jose'
+import { db } from '@/src/prisma/db'
+
+declare global {
+  var __LAST_KIOSK_IP__: string | undefined
+}
 
 const secretKey = process.env.JWT_SECRET || 'clave-secreta-anti-fraude-12345'
 const encodedKey = new TextEncoder().encode(secretKey)
@@ -17,6 +22,26 @@ export async function generarTokenKiosco() {
   
   // IP del kiosco (más confiable x-real-ip en producción)
   const kioskIp = realIp || (forwarded ? forwarded.split(',')[0].trim() : 'unknown')
+
+  // Registrar la IP actual del Kiosco para validación preventiva en el Login de trabajadores
+  if (kioskIp && kioskIp !== 'unknown') {
+    globalThis.__LAST_KIOSK_IP__ = kioskIp
+    const adminId = session.userId as string
+    if (adminId) {
+      try {
+        const adminUser = await db.orm.public.Usuario.where({ id: adminId }).first()
+        const lastUpdate = Number(adminUser?.device_uuid || 0)
+        if (adminUser && (adminUser.device_hash !== kioskIp || Date.now() - lastUpdate > 300000)) {
+          await db.orm.public.Usuario.where({ id: adminId }).update({
+            device_hash: kioskIp,
+            device_uuid: Date.now().toString()
+          })
+        }
+      } catch (dbError) {
+        console.error("Error al registrar IP del Kiosco:", dbError)
+      }
+    }
+  }
 
   const timestamp = Date.now()
   

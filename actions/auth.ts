@@ -5,6 +5,10 @@ import bcrypt from 'bcryptjs'
 import { createSession, deleteSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 
+declare global {
+  var __LAST_KIOSK_IP__: string | undefined
+}
+
 // Prevención básica de fuerza bruta (Throttling en memoria)
 const failedAttempts = new Map<string, { count: number, lockUntil: number }>()
 
@@ -57,6 +61,36 @@ export async function login(prevState: any, formData: FormData) {
   if (usuario.rol === 'USER') {
     const { getConfig } = await import('@/lib/configManager')
     const config = await getConfig()
+
+    // 3.1 Validación Preventiva de Red (WiFi de la empresa)
+    if (config.requerirMismaRed) {
+      const { headers } = await import('next/headers')
+      const headersList = await headers()
+      const forwarded = headersList.get('x-forwarded-for')
+      const realIp = headersList.get('x-real-ip')
+      const workerIp = realIp || (forwarded ? forwarded.split(',')[0].trim() : 'unknown')
+
+      let kioskIp = globalThis.__LAST_KIOSK_IP__
+      if (!kioskIp) {
+        const admins = await db.orm.public.Usuario.where({ rol: 'ADMIN' }).all()
+        const activeAdmin = admins
+          .filter(a => a.device_hash)
+          .sort((a, b) => Number(b.device_uuid || 0) - Number(a.device_uuid || 0))[0]
+        kioskIp = activeAdmin?.device_hash || undefined
+        if (kioskIp) {
+          globalThis.__LAST_KIOSK_IP__ = kioskIp
+        }
+      }
+
+      const isLocalhost = (ip: string) => ip === '127.0.0.1' || ip === '::1' || ip === 'localhost'
+      const isMismatch = (isLocalhost(workerIp) && isLocalhost(kioskIp || ''))
+        ? false
+        : (Boolean(kioskIp) && workerIp !== 'unknown' && workerIp !== kioskIp)
+
+      if (isMismatch) {
+        return { error: 'Debes estar conectado a la red WiFi de la empresa para iniciar sesión.' }
+      }
+    }
 
     if (!deviceHash || !deviceUuid) {
       return { error: 'No se pudo obtener la huella del dispositivo' }
