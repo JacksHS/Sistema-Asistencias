@@ -36,8 +36,17 @@ export async function GET(request: Request) {
       
     asistenciasRaw = await query.all()
 
-    // 5.1 Refuerzo de filtro en memoria y límite máximo para no crashear Node.js
-    if (desde) asistenciasRaw = asistenciasRaw.filter(a => new Date(a.fecha_hora) >= new Date(`${desde}T00:00:00`))
+    // 5.1 Refuerzo de filtro en memoria: por defecto últimos 30 días si no se especifican fechas
+    let fechaInicioFiltro: Date | null = null
+    if (desde) {
+      fechaInicioFiltro = new Date(`${desde}T00:00:00`)
+    } else if (!hasta) {
+      const hace30Dias = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+      hace30Dias.setHours(0, 0, 0, 0)
+      fechaInicioFiltro = hace30Dias
+    }
+
+    if (fechaInicioFiltro) asistenciasRaw = asistenciasRaw.filter(a => new Date(a.fecha_hora) >= fechaInicioFiltro!)
     if (hasta) asistenciasRaw = asistenciasRaw.filter(a => new Date(a.fecha_hora) <= new Date(`${hasta}T23:59:59.999`))
     
     // Límite de seguridad para exportación pesada

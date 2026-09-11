@@ -37,8 +37,17 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
     // Para asegurar, simplemente evitamos traer 10,000 filtrando por defecto si es muy grande.
     asistenciasRaw = await query.all()
     
-    // Refuerzo en memoria por si el conector de Prisma Composer no soporta anidación gte/lte aún
-    if (desde) asistenciasRaw = asistenciasRaw.filter(a => new Date(a.fecha_hora) >= new Date(`${desde}T00:00:00`))
+    // Si no hay filtro manual de 'desde' ni 'hasta', por defecto se toman los últimos 30 días
+    let fechaInicioFiltro: Date | null = null
+    if (desde) {
+      fechaInicioFiltro = new Date(`${desde}T00:00:00`)
+    } else if (!hasta) {
+      const hace30Dias = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+      hace30Dias.setHours(0, 0, 0, 0)
+      fechaInicioFiltro = hace30Dias
+    }
+
+    if (fechaInicioFiltro) asistenciasRaw = asistenciasRaw.filter(a => new Date(a.fecha_hora) >= fechaInicioFiltro!)
     if (hasta) asistenciasRaw = asistenciasRaw.filter(a => new Date(a.fecha_hora) <= new Date(`${hasta}T23:59:59.999`))
     
     // Límite de seguridad
@@ -198,8 +207,13 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
               <div className="p-4 bg-gray-50 border-b border-gray-200 flex flex-col xl:flex-row xl:items-start justify-between gap-4 shrink-0">
                 <div className="flex items-center gap-2 mt-2">
                   <Clock className="w-5 h-5 text-gray-600" />
-                  <h3 className="font-bold text-gray-800">
-                    {trabajadorActivo ? `Asistencias de ${trabajadorActivo.nombre_completo}` : 'Últimas Asistencias'}
+                  <h3 className="font-bold text-gray-800 flex items-center gap-2 flex-wrap">
+                    <span>{trabajadorActivo ? `Asistencias de ${trabajadorActivo.nombre_completo}` : 'Últimas Asistencias'}</span>
+                    {!desde && !hasta && (
+                      <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                        Últimos 30 días
+                      </span>
+                    )}
                   </h3>
                   {workerId && (
                     <Link href={`?desde=${desde||''}&hasta=${hasta||''}`} className="text-xs flex items-center gap-1 bg-red-100 text-red-700 px-2 py-1.5 rounded-lg hover:bg-red-200 font-medium transition-colors ml-2">
