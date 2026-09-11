@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useEffect, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { crearTrabajador, resetearDispositivo, eliminarTrabajador, editarTrabajador, guardarConfiguracion } from '@/actions/admin'
 import { Loader2, RefreshCcw, Smartphone, UserPlus, Pencil, Trash2, Settings, AlertTriangle, ChevronUp, ChevronDown, Clock, Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
@@ -205,11 +206,11 @@ export function CreateWorkerForm() {
             type="text" 
             name="usuario" 
             required 
-            pattern="[a-z0-9_]+"
+            pattern="[a-zA-Z0-9_]+"
             maxLength={20}
-            title="Solo minúsculas, números y guión bajo. Sin espacios."
+            title="Solo letras, números y guión bajo. Sin espacios ni símbolos."
             onChange={(e) => {
-              e.target.value = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '')
+              e.target.value = e.target.value.replace(/[^a-zA-Z0-9_]/g, '')
             }}
             className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all text-slate-800 font-medium"
             placeholder="Ej. jperez (sin espacios)"
@@ -704,3 +705,51 @@ export function DateFilter({ workerId }: { workerId?: string }) {
     </div>
   )
 }
+
+// RELOJ SINCRONIZADO CON PERÚ (America/Lima)
+export function AdminLiveClock() {
+  const [hora, setHora] = useState<string>('')
+
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date()
+      const formatted = new Intl.DateTimeFormat('es-PE', {
+        timeZone: 'America/Lima',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      }).format(now)
+      setHora(formatted)
+    }
+    updateTime()
+    const interval = setInterval(updateTime, 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  if (!hora) return null
+
+  return (
+    <div className="flex items-center gap-2 bg-slate-800/90 border border-slate-700/80 px-3 py-1.5 rounded-lg text-xs font-mono text-emerald-400 shadow-inner select-none">
+      <Clock className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+      <span className="font-semibold tabular-nums">{hora}</span>
+      <span className="text-[10px] text-slate-400 font-sans uppercase font-bold">PE</span>
+    </div>
+  )
+}
+
+// AUTO-REFRESH DE TABLA DE ASISTENCIAS SIN PARPADEO
+export function AutoRefreshTable({ intervalSeconds = 6 }: { intervalSeconds?: number }) {
+  const router = useRouter()
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      router.refresh()
+    }, intervalSeconds * 1000)
+
+    return () => clearInterval(interval)
+  }, [router, intervalSeconds])
+
+  return null
+}
+

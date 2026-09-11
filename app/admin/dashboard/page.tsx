@@ -1,7 +1,7 @@
 import React from 'react'
 import { db } from '@/src/prisma/db'
 import { logout } from '@/actions/auth'
-import { CreateWorkerForm, WorkerActions, SettingsPanel, DateFilter } from './components/DashboardClient'
+import { CreateWorkerForm, WorkerActions, SettingsPanel, DateFilter, AdminLiveClock, AutoRefreshTable } from './components/DashboardClient'
 import { LogOut, MonitorSmartphone, Clock, Users, ShieldCheck, FilterX } from 'lucide-react'
 import Link from 'next/link'
 import { getConfig } from '@/lib/configManager'
@@ -66,6 +66,17 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
     const u = trabajadores.find(t => t.id === a.usuario_id)
     
     if (!consolidados[key]) {
+      // Extraer hora y minuto en la zona horaria oficial (America/Lima)
+      const localTimeParts = new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      }).formatToParts(a.fecha)
+      const localHour = parseInt(localTimeParts.find(p => p.type === 'hour')!.value)
+      const localMinute = parseInt(localTimeParts.find(p => p.type === 'minute')!.value)
+      const esTarde = (localHour > limiteHora) || (localHour === limiteHora && localMinute > limiteMin)
+
       consolidados[key] = {
         id: a.id,
         usuario_id: a.usuario_id,
@@ -73,7 +84,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
         fechaDivisor: a.fechaDivisor,
         fechaFiltro: a.fecha,
         entrada: a.fecha,
-        esTarde: (a.fecha.getHours() > limiteHora) || (a.fecha.getHours() === limiteHora && a.fecha.getMinutes() > limiteMin),
+        esTarde,
         salida: null
       }
     } else if (!consolidados[key].salida) {
@@ -111,9 +122,12 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
 
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex justify-between min-h-16 py-3 items-center flex-wrap gap-3">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="text-emerald-400 w-6 h-6" />
-              <span className="font-bold text-xl tracking-tight">AdminPanel</span>
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="text-emerald-400 w-6 h-6" />
+                <span className="font-bold text-xl tracking-tight">AdminPanel</span>
+              </div>
+              <AdminLiveClock />
             </div>
             
             <div className="flex items-center gap-2 sm:gap-4">
@@ -180,6 +194,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
           {/* COLUMNA 2: HISTORIAL DE ASISTENCIAS (Ocupa 6 de 12, es decir, el 50%) */}
           <div className="lg:col-span-6">
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden h-[830px] flex flex-col">
+              <AutoRefreshTable intervalSeconds={6} />
               <div className="p-4 bg-gray-50 border-b border-gray-200 flex flex-col xl:flex-row xl:items-start justify-between gap-4 shrink-0">
                 <div className="flex items-center gap-2 mt-2">
                   <Clock className="w-5 h-5 text-gray-600" />

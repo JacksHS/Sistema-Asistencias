@@ -109,6 +109,12 @@ export default function LoginPage() {
                   name="usuario"
                   required
                   placeholder="usuario"
+                  pattern="[a-zA-Z0-9_]+"
+                  maxLength={20}
+                  title="Solo letras, números y guión bajo. Sin espacios ni símbolos."
+                  onChange={(e) => {
+                    e.target.value = e.target.value.replace(/[^a-zA-Z0-9_]/g, '')
+                  }}
                   className="block w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-slate-300 hover:bg-white transition-all duration-200 font-medium placeholder:font-normal placeholder:text-slate-400"
                 />
               </div>

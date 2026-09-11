@@ -20,7 +20,11 @@ export default async function proxy(req: NextRequest) {
 
   // 2. Redirigir si no está autenticado y la ruta es privada
   if (!isPublicRoute && !session) {
-    return NextResponse.redirect(new URL('/', req.nextUrl))
+    const redirectRes = NextResponse.redirect(new URL('/', req.nextUrl))
+    if (cookie) {
+      redirectRes.cookies.delete('session')
+    }
+    return redirectRes
   }
 
   // 3. Lógica de redirección basada en roles si hay sesión

@@ -9,14 +9,14 @@ export async function crearTrabajador(prevState: any, formData: FormData) {
   const session = await getSession()
   if (!session || session.rol !== 'ADMIN') return { error: 'No autorizado' }
 
-  const usuarioInput = formData.get('usuario') as string
+  const usuarioInput = ((formData.get('usuario') as string) || '').trim().replace(/[^a-zA-Z0-9_]/g, '')
   const nombreCompleto = formData.get('nombre_completo') as string
   const password = formData.get('password') as string
 
   if (!usuarioInput || !password || !nombreCompleto) return { error: 'Todos los campos son requeridos' }
   
   if (usuarioInput.length < 3 || usuarioInput.length > 20) return { error: 'El usuario debe tener entre 3 y 20 caracteres' }
-  if (!/^[a-z0-9_]+$/.test(usuarioInput)) return { error: 'El usuario solo puede contener minúsculas, números y guiones bajos (_)' }
+  if (!/^[a-zA-Z0-9_]+$/.test(usuarioInput)) return { error: 'El usuario solo puede contener letras, números y guiones bajos (_)' }
   if (password.length < 6) return { error: 'La contraseña debe tener al menos 6 caracteres' }
 
   try {

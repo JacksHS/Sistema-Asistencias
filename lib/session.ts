@@ -7,11 +7,11 @@ if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
 const secretKey = process.env.JWT_SECRET || 'clave-secreta-anti-fraude-12345'
 const encodedKey = new TextEncoder().encode(secretKey)
 
-export async function encrypt(payload: any) {
+export async function encrypt(payload: any, expiresIn: string = '8m') {
   return new SignJWT(payload)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime('12h')
+    .setExpirationTime(expiresIn)
     .sign(encodedKey)
 }
 
@@ -27,14 +27,20 @@ export async function decrypt(session: string | undefined = '') {
 }
 
 export async function createSession(userId: string, rol: string) {
-  const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000) // 12 horas
-  const session = await encrypt({ userId, rol, expiresAt })
+  // Administrador: 8 minutos | Trabajador / Estándar: 2 minutos
+  const durationMs = rol === 'ADMIN' ? 8 * 60 * 1000 : 2 * 60 * 1000
+  const maxAgeSeconds = Math.floor(durationMs / 1000)
+  const expiresInJWT = rol === 'ADMIN' ? '8m' : '2m'
+
+  const expiresAt = new Date(Date.now() + durationMs)
+  const session = await encrypt({ userId, rol, expiresAt }, expiresInJWT)
 
   const cookieStore = await cookies()
   cookieStore.set('session', session, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     expires: expiresAt,
+    maxAge: maxAgeSeconds,
     sameSite: 'lax',
     path: '/',
   })

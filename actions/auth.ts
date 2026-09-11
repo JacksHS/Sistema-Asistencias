@@ -9,7 +9,7 @@ import { redirect } from 'next/navigation'
 const failedAttempts = new Map<string, { count: number, lockUntil: number }>()
 
 export async function login(prevState: any, formData: FormData) {
-  const usuarioInput = formData.get('usuario') as string
+  const usuarioInput = ((formData.get('usuario') as string) || '').trim().replace(/[^a-zA-Z0-9_]/g, '')
   const password = formData.get('password') as string
   
   if (failedAttempts.has(usuarioInput)) {
