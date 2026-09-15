@@ -1,42 +1,55 @@
 'use client'
 
 import { useActionState, useEffect, useState, useTransition } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { crearTrabajador, resetearDispositivo, eliminarTrabajador, editarTrabajador, guardarConfiguracion, crearAsistenciaManual } from '@/actions/admin'
 import { Loader2, RefreshCcw, Smartphone, UserPlus, Pencil, Trash2, Settings, AlertTriangle, ChevronUp, ChevronDown, Clock, Eye, EyeOff, Search, PenSquare, Users } from 'lucide-react'
 import { toast } from 'sonner'
 
+// PORTAL CLIENTE PARA MODALES (Evita superposición de headers sticky o barras de navegación)
+function ClientPortal({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+  if (!mounted || typeof document === 'undefined') return null
+  return createPortal(children, document.body)
+}
+
 // MODAL CONFIRMACION
 function ConfirmModal({ isOpen, title, message, onConfirm, onCancel, confirmText, isDanger, isPending }: any) {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-in fade-in zoom-in-95 duration-200">
-        <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-4 ${isDanger ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>
-          <AlertTriangle className="w-6 h-6" />
-        </div>
-        <h3 className="font-bold text-xl text-gray-900 mb-2">{title}</h3>
-        <p className="text-gray-600 text-sm mb-6 leading-relaxed">{message}</p>
-        <div className="flex justify-end gap-3">
-          <button 
-            onClick={onCancel} 
-            disabled={isPending}
-            className="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors disabled:opacity-50"
-          >
-            Cancelar
-          </button>
-          <button 
-            onClick={onConfirm} 
-            disabled={isPending}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-xl transition-colors disabled:opacity-70 ${isDanger ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700'}`}
-          >
-            {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-            {confirmText}
-          </button>
+    <ClientPortal>
+      <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-in fade-in zoom-in-95 duration-200">
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-4 ${isDanger ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>
+            <AlertTriangle className="w-6 h-6" />
+          </div>
+          <h3 className="font-bold text-xl text-gray-900 mb-2">{title}</h3>
+          <p className="text-gray-600 text-sm mb-6 leading-relaxed">{message}</p>
+          <div className="flex justify-end gap-3">
+            <button 
+              onClick={onCancel} 
+              disabled={isPending}
+              className="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button 
+              onClick={onConfirm} 
+              disabled={isPending}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-xl transition-colors disabled:opacity-70 ${isDanger ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700'}`}
+            >
+              {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              {confirmText}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </ClientPortal>
   )
 }
 
@@ -73,7 +86,8 @@ function EditWorkerModal({ isOpen, worker, onClose, onSave, isPending }: {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+    <ClientPortal>
+      <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
@@ -179,6 +193,7 @@ function EditWorkerModal({ isOpen, worker, onClose, onSave, isPending }: {
         </form>
       </div>
     </div>
+    </ClientPortal>
   )
 }
 
@@ -260,6 +275,21 @@ export function CreateWorkerForm() {
           </div>
         </div>
 
+        {/* Horario de Entrada Especial (Opcional) */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+            Horario de Entrada Especial <span className="font-normal text-gray-400 text-xs">— Opcional</span>
+          </label>
+          <input 
+            type="time" 
+            name="horario_especial" 
+            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all text-slate-800 font-medium hover:border-gray-300"
+          />
+          <p className="text-xs text-gray-400 mt-1 pl-1">
+            Dejar vacío para que use el horario general de la empresa.
+          </p>
+        </div>
+
         <button 
           type="submit" 
           disabled={isPending}
@@ -273,17 +303,29 @@ export function CreateWorkerForm() {
 }
 
 // ACCIONES DE TRABAJADOR (Reset, Edit, Delete)
-export function WorkerActions({ id, hasDevice, currentName, currentUsuario }: { id: string, hasDevice: boolean, currentName: string, currentUsuario: string }) {
+export function WorkerActions({ 
+  id, 
+  hasDevice, 
+  currentName, 
+  currentUsuario,
+  currentHorarioEspecial
+}: { 
+  id: string, 
+  hasDevice: boolean, 
+  currentName: string, 
+  currentUsuario: string,
+  currentHorarioEspecial?: string
+}) {
   const [isPending, startTransition] = useTransition()
   const [modalState, setModalState] = useState<{type: 'delete' | 'reset' | 'edit' | null}>({type: null})
 
-  const handleEdit = (newName: string) => {
-    if (!newName || newName === currentName) {
+  const handleEdit = (newName: string, newHorario?: string) => {
+    if (!newName || (newName === currentName && newHorario === currentHorarioEspecial)) {
       setModalState({ type: null })
       return
     }
     startTransition(async () => {
-      const res = await editarTrabajador(id, newName)
+      const res = await editarTrabajador(id, newName, newHorario)
       if (res.error) toast.error(res.error)
       if (res.success) {
         toast.success(res.success)
@@ -354,7 +396,7 @@ export function WorkerActions({ id, hasDevice, currentName, currentUsuario }: { 
       {/* Modal de edición */}
       <EditWorkerModal
         isOpen={modalState.type === 'edit'}
-        worker={modalState.type === 'edit' ? { id, nombre: currentName, usuario: currentUsuario } : null}
+        worker={modalState.type === 'edit' ? { id, nombre: currentName, usuario: currentUsuario, horarioEspecial: currentHorarioEspecial } : null}
         onClose={() => setModalState({ type: null })}
         onSave={handleEdit}
         isPending={isPending}
@@ -491,7 +533,7 @@ export function SettingsPanel({ initialConfig }: { initialConfig: any }) {
   const [isPending, startTransition] = useTransition()
   const [pendingToggle, setPendingToggle] = useState<{key: string, value: boolean} | null>(null)
 
-  const applyToggle = (key: string, value: boolean | string) => {
+  const applyToggle = (key: string, value: boolean | string | number) => {
     const newConfig = { ...config, [key]: value }
     setConfig(newConfig)
     startTransition(async () => {
@@ -601,6 +643,25 @@ export function SettingsPanel({ initialConfig }: { initialConfig: any }) {
             onChange={(val) => applyToggle('horaLimiteTardanza', val)}
             disabled={isPending}
           />
+
+          {/* Línea pequeña debajo del reloj: [ N ] minutos de tolerancia */}
+          <div className="mt-4 flex items-center justify-center gap-2 bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 shadow-inner">
+            <span className="text-xs font-semibold text-slate-500">+</span>
+            <input 
+              type="number" 
+              min={0}
+              max={60}
+              value={config.toleranciaMinutos ?? 0}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10)
+                applyToggle('toleranciaMinutos', isNaN(val) ? 0 : Math.max(0, Math.min(60, val)))
+              }}
+              disabled={isPending}
+              className="w-14 text-center font-bold text-slate-800 bg-white border border-slate-300 rounded-lg px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-emerald-500 transition-all shadow-sm"
+              placeholder="0"
+            />
+            <span className="text-xs font-semibold text-slate-600">minutos de tolerancia</span>
+          </div>
         </div>
       </div>
     </div>
@@ -771,4 +832,318 @@ export function AutoRefreshTable({ intervalSeconds = 6 }: { intervalSeconds?: nu
 
   return null
 }
+
+// AVATAR CIRCULAR CON INICIALES DE COLORES
+export function AvatarCircle({ name, size = 'md' }: { name: string, size?: 'sm' | 'md' | 'lg' }) {
+  const cleanName = (name || '').trim()
+  const parts = cleanName.split(' ').filter(Boolean)
+  const initials = parts.length > 1
+    ? (parts[0][0] + parts[1][0]).toUpperCase()
+    : (cleanName.slice(0, 2) || '?').toUpperCase()
+
+  const colors = [
+    'bg-emerald-100 text-emerald-700 border-emerald-300',
+    'bg-blue-100 text-blue-700 border-blue-300',
+    'bg-indigo-100 text-indigo-700 border-indigo-300',
+    'bg-purple-100 text-purple-700 border-purple-300',
+    'bg-rose-100 text-rose-700 border-rose-300',
+    'bg-amber-100 text-amber-700 border-amber-300',
+    'bg-teal-100 text-teal-700 border-teal-300',
+    'bg-cyan-100 text-cyan-700 border-cyan-300'
+  ]
+  const hash = cleanName.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
+  const color = colors[hash % colors.length]
+
+  const sizeClasses = {
+    sm: 'w-6 h-6 text-[10px]',
+    md: 'w-8 h-8 text-xs font-bold',
+    lg: 'w-10 h-10 text-sm font-bold'
+  }[size]
+
+  return (
+    <div className={`rounded-full flex items-center justify-center border select-none shrink-0 ${sizeClasses} ${color}`}>
+      {initials}
+    </div>
+  )
+}
+
+// BUSCADOR EN TIEMPO REAL PARA LA LISTA DE TRABAJADORES
+export function WorkerListSearch({ 
+  trabajadores, 
+  workerId, 
+  horariosEspeciales = {} 
+}: { 
+  trabajadores: any[], 
+  workerId?: string, 
+  horariosEspeciales?: Record<string, string> 
+}) {
+  const [query, setQuery] = useState('')
+
+  const filtrados = trabajadores.filter(t => {
+    const q = query.toLowerCase()
+    return (t.nombre_completo || '').toLowerCase().includes(q) || (t.usuario || '').toLowerCase().includes(q)
+  })
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col max-h-[520px]">
+      {/* Header con contador */}
+      <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center gap-2 shrink-0">
+        <Users className="w-5 h-5 text-gray-600" />
+        <h3 className="font-bold text-gray-800 flex-1">Trabajadores</h3>
+        <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded-full">
+          {filtrados.length} / {trabajadores.length}
+        </span>
+      </div>
+
+      {/* Input de Búsqueda en Vivo */}
+      <div className="p-2.5 border-b border-gray-100 bg-white shrink-0">
+        <div className="relative">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Buscar por nombre o usuario..."
+            className="w-full pl-9 pr-7 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-slate-800 placeholder:text-gray-400"
+          />
+          {query && (
+            <button 
+              onClick={() => setQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Lista scrolleable */}
+      <ul className="divide-y divide-gray-100 overflow-y-auto overflow-x-hidden scrollbar-thin flex-1">
+        {filtrados.length === 0 ? (
+          <li className="p-6 text-xs text-gray-400 text-center flex flex-col items-center gap-2">
+            <span>No se encontraron trabajadores para &ldquo;{query}&rdquo;</span>
+          </li>
+        ) : (
+          filtrados.map((t) => (
+            <li 
+              key={t.id} 
+              className={`p-3.5 transition-colors ${
+                workerId === t.id 
+                  ? 'bg-blue-50/80 border-l-4 border-blue-500' 
+                  : 'hover:bg-gray-50 border-l-4 border-transparent'
+              }`}
+            >
+              <div className="flex flex-col gap-1.5">
+                <Link href={`?workerId=${t.id}`} className="flex items-center gap-2.5">
+                  <AvatarCircle name={t.nombre_completo} size="md" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-semibold text-gray-800 text-sm truncate block hover:text-blue-600 transition-colors cursor-pointer">
+                        {t.nombre_completo}
+                      </span>
+                      {horariosEspeciales[t.id] && (
+                        <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded shrink-0" title="Horario especial de entrada">
+                          {horariosEspeciales[t.id]}
+                        </span>
+                      )}
+                    </div>
+                    <span className="block text-xs text-gray-500">@{t.usuario}</span>
+                  </div>
+                </Link>
+
+                <WorkerActions 
+                  id={t.id} 
+                  hasDevice={!!(t.device_hash && t.device_uuid)} 
+                  currentName={t.nombre_completo}
+                  currentUsuario={t.usuario}
+                  currentHorarioEspecial={horariosEspeciales[t.id]}
+                />
+              </div>
+            </li>
+          ))
+        )}
+      </ul>
+    </div>
+  )
+}
+
+// MODAL DE REGISTRO MANUAL DE ASISTENCIA POR EXCEPCIÓN
+export function ManualAttendanceButton({ trabajadores }: { trabajadores: { id: string, nombre_completo: string, usuario: string }[] }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [state, formAction, isPending] = useActionState(crearAsistenciaManual, null)
+
+  // Obtener fecha y hora actuales en Perú
+  const getPeruCurrentDate = () => {
+    const now = new Date()
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(now) // YYYY-MM-DD
+  }
+
+  const getPeruMinDate = () => {
+    const d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(d)
+  }
+
+  const getPeruCurrentTime = () => {
+    const now = new Date()
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Lima',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }).formatToParts(now)
+    const h = parts.find(p => p.type === 'hour')!.value.padStart(2, '0')
+    const m = parts.find(p => p.type === 'minute')!.value.padStart(2, '0')
+    return `${h}:${m}`
+  }
+
+  const [fecha, setFecha] = useState('')
+  const [hora, setHora] = useState('')
+
+  useEffect(() => {
+    if (isOpen) {
+      setFecha(getPeruCurrentDate())
+      setHora(getPeruCurrentTime())
+    }
+  }, [isOpen])
+
+  useEffect(() => {
+    if (state?.error) {
+      toast.error(state.error)
+    } else if (state?.success) {
+      toast.success(state.success)
+      setIsOpen(false)
+    }
+  }, [state])
+
+  return (
+    <>
+      <button
+        onClick={() => setIsOpen(true)}
+        className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-700/80 shadow-inner transition-all active:scale-95 shrink-0"
+        title="Registrar asistencia manual por excepción"
+      >
+        <PenSquare className="w-3.5 h-3.5 text-amber-400" />
+        <span>Registro Manual</span>
+      </button>
+
+      {isOpen && (
+        <ClientPortal>
+          <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-200">
+              {/* Encabezado */}
+              <div className="flex items-center gap-3 mb-5">
+                <div className="bg-amber-100 text-amber-600 w-10 h-10 rounded-full flex items-center justify-center shrink-0">
+                  <PenSquare className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg text-gray-900 leading-tight">Registro Manual de Asistencia</h3>
+                  <p className="text-gray-500 text-xs">Por excepción (ej. batería agotada o daño de celular)</p>
+                </div>
+              </div>
+
+              <form action={formAction} className="space-y-4">
+                {/* Seleccionar Trabajador */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Trabajador</label>
+                  <select
+                    name="usuarioId"
+                    required
+                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none text-sm text-slate-800 font-medium cursor-pointer"
+                  >
+                    <option value="">-- Selecciona un trabajador --</option>
+                    {trabajadores.map(t => (
+                      <option key={t.id} value={t.id}>
+                        {t.nombre_completo} (@{t.usuario})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Fecha y Hora en una sola fila con límites estrictos */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">Fecha</label>
+                    <input
+                      type="date"
+                      name="fecha"
+                      value={fecha}
+                      max={getPeruCurrentDate()}
+                      min={getPeruMinDate()}
+                      onChange={e => setFecha(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none text-xs text-slate-800 font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">Hora</label>
+                    <input
+                      type="time"
+                      name="hora"
+                      value={hora}
+                      onChange={e => setHora(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none text-xs text-slate-800 font-medium"
+                    />
+                  </div>
+                </div>
+
+                {/* Motivo Estandarizado Fijo */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Motivo de Excepción</label>
+                  <select
+                    name="motivo"
+                    required
+                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none text-xs text-slate-800 font-medium cursor-pointer"
+                  >
+                    <option value="bateria">🔋 Batería baja / Celular apagado</option>
+                    <option value="olvido">🧠 Olvido involuntario de registro</option>
+                    <option value="permiso">👔 Permiso de gerencia / Comisión</option>
+                    <option value="equipo">📱 Equipo dañado / En reparación</option>
+                    <option value="red">📶 Falla de red / Sin conexión a Internet</option>
+                    <option value="otro">✍️ Otro motivo justificado</option>
+                  </select>
+                </div>
+
+                {/* Detalle u Observación adicional */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Detalle u Observación <span className="font-normal text-gray-400">— Opcional</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="detalle"
+                    maxLength={60}
+                    placeholder="Ej. Notificó previamente a gerencia, celular sin carga..."
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none text-xs text-slate-800 font-medium placeholder:text-gray-400"
+                  />
+                </div>
+
+                {/* Botones de acción */}
+                <div className="flex justify-end gap-2.5 pt-3 border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsOpen(false)}
+                    disabled={isPending}
+                    className="px-4 py-2 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isPending}
+                    className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl transition-colors disabled:opacity-70 shadow-md shadow-amber-600/20"
+                  >
+                    {isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    Guardar Registro Manual
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </ClientPortal>
+      )}
+    </>
+  )
+}
+
 

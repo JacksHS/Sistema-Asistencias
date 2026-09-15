@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/src/prisma/db'
 import { getSession } from '@/lib/session'
-import { getConfig } from '@/lib/configManager'
+import { getConfig, calcularEsTarde, parsearRegistroManual } from '@/lib/configManager'
 import * as XLSX from 'xlsx'
 
 export async function GET(request: Request) {
@@ -70,16 +70,7 @@ export async function GET(request: Request) {
       const u = trabajadores.find(t => t.id === a.usuario_id)
       
       if (!consolidados[key]) {
-        // Extraer hora y minuto en la zona horaria correcta (no UTC)
-        const localTimeParts = new Intl.DateTimeFormat('en-US', {
-          timeZone,
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false
-        }).formatToParts(a.fecha)
-        const localHour = parseInt(localTimeParts.find(p => p.type === 'hour')!.value)
-        const localMinute = parseInt(localTimeParts.find(p => p.type === 'minute')!.value)
-        const esTarde = (localHour > limiteHora) || (localHour === limiteHora && localMinute > limiteMin)
+        const esTarde = calcularEsTarde(a.fecha, a.usuario_id, config, timeZone)
 
         consolidados[key] = {
           usuario_id: a.usuario_id,
@@ -87,10 +78,13 @@ export async function GET(request: Request) {
           fechaFiltro: a.fecha,
           entrada: a.fecha,
           esTarde,
-          salida: null
+          salida: null,
+          manualEntrada: parsearRegistroManual(a.id),
+          manualSalida: null
         }
       } else if (!consolidados[key].salida) {
         consolidados[key].salida = a.fecha
+        consolidados[key].manualSalida = parsearRegistroManual(a.id)
       }
     })
 
@@ -99,16 +93,36 @@ export async function GET(request: Request) {
     const asistenciasFormateadas = Object.values(consolidados).map(a => {
       const fechaClave = new Intl.DateTimeFormat('en-CA', { timeZone }).format(a.fechaFiltro)
       const esHoy = fechaClave === hoyClave
-      const salidaTexto = a.salida 
+      
+      let salidaTexto = a.salida 
         ? a.salida.toLocaleTimeString('es-ES', { timeZone, hour: '2-digit', minute: '2-digit', second: '2-digit' }) 
         : (esHoy ? 'Pendiente' : 'No registrado')
+
+      if (a.salida && a.manualSalida?.esManual) {
+        salidaTexto += ` [Manual: ${a.manualSalida.motivoTexto}${a.manualSalida.detalle ? ` - ${a.manualSalida.detalle}` : ''}]`
+      }
+
+      let entradaTexto = a.entrada.toLocaleTimeString('es-ES', { timeZone, hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      if (a.manualEntrada?.esManual) {
+        entradaTexto += ` [Manual: ${a.manualEntrada.motivoTexto}${a.manualEntrada.detalle ? ` - ${a.manualEntrada.detalle}` : ''}]`
+      }
+
+      const tieneManual = a.manualEntrada?.esManual || a.manualSalida?.esManual
+      let observacion = 'Registro regular (Escáner)'
+      if (tieneManual) {
+        const obs: string[] = []
+        if (a.manualEntrada?.esManual) obs.push(`Entrada: ${a.manualEntrada.motivoTexto}`)
+        if (a.manualSalida?.esManual) obs.push(`Salida: ${a.manualSalida.motivoTexto}`)
+        observacion = `Excepción manual (${obs.join('; ')})`
+      }
 
       return {
         'Trabajador': a.nombre_trabajador,
         'Fecha': a.fechaFiltro.toLocaleDateString('es-ES', { timeZone }),
-        'Entrada': a.entrada.toLocaleTimeString('es-ES', { timeZone, hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        'Entrada': entradaTexto,
         'Estado (Llegada)': a.esTarde ? 'Tarde' : 'Temprano',
-        'Salida': salidaTexto
+        'Salida': salidaTexto,
+        'Tipo de Registro': observacion
       }
     })
 
@@ -120,11 +134,12 @@ export async function GET(request: Request) {
     
     // Ajustar el ancho de las columnas
     worksheet['!cols'] = [
-      { wch: 35 }, // Trabajador
-      { wch: 15 }, // Fecha
-      { wch: 15 }, // Entrada
-      { wch: 20 }, // Estado
-      { wch: 15 }  // Salida
+      { wch: 32 }, // Trabajador
+      { wch: 14 }, // Fecha
+      { wch: 26 }, // Entrada
+      { wch: 18 }, // Estado
+      { wch: 26 }, // Salida
+      { wch: 36 }  // Tipo de Registro
     ]
 
     const workbook = XLSX.utils.book_new()

@@ -139,3 +139,41 @@ export function calcularEsTarde(
 
   return minutosLlegada > minutosLimite
 }
+
+// Catálogo estándar de motivos para registros manuales por excepción
+export const MOTIVOS_MANUALES: Record<string, string> = {
+  bateria: 'Batería baja / Celular apagado',
+  olvido: 'Olvido involuntario de registro',
+  permiso: 'Permiso de gerencia / Comisión',
+  equipo: 'Equipo dañado / En reparación',
+  red: 'Falla de red / Sin conexión',
+  otro: 'Otro motivo justificado'
+}
+
+// Decodifica la información del registro manual almacenada en el id sin migraciones
+export function parsearRegistroManual(id?: string): { 
+  esManual: boolean
+  clave: string
+  motivoTexto: string
+  detalle?: string 
+} {
+  if (!id || !id.startsWith('manual_')) {
+    return { esManual: false, clave: '', motivoTexto: '' }
+  }
+
+  const parts = id.split('_')
+  const clave = parts[2] || 'otro'
+  let detalle = ''
+  if (parts[3] && parts[3] !== 'none') {
+    try {
+      detalle = Buffer.from(parts[3], 'hex').toString('utf-8')
+    } catch(e) {}
+  }
+
+  return {
+    esManual: true,
+    clave,
+    motivoTexto: MOTIVOS_MANUALES[clave] || 'Registro manual por excepción',
+    detalle
+  }
+}

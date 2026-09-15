@@ -150,13 +150,26 @@ export async function crearAsistenciaManual(prevState: any, formData: FormData) 
   const usuarioId = formData.get('usuarioId') as string
   const fecha = formData.get('fecha') as string // YYYY-MM-DD
   const hora = formData.get('hora') as string // HH:mm
-  const motivo = (formData.get('motivo') as string || '').trim()
+  const motivoClave = (formData.get('motivo') as string || 'otro').trim()
+  const detalle = (formData.get('detalle') as string || '').trim().replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ .,-]/g, '').slice(0, 60)
 
   if (!usuarioId || !fecha || !hora) {
     return { error: 'Trabajador, fecha y hora son requeridos' }
   }
-  if (!motivo) {
-    return { error: 'Debes ingresar un motivo o justificación para el registro manual' }
+
+  // 1. Validar que la fecha y hora no sean en el futuro
+  const nowServer = Date.now()
+  const fechaHoraTarget = new Date(`${fecha}T${hora}:00-05:00`).getTime()
+  if (isNaN(fechaHoraTarget)) {
+    return { error: 'Formato de fecha u hora no válido' }
+  }
+  if (fechaHoraTarget > nowServer + 5 * 60 * 1000) { // Margen de 5 min por desfase de segundos
+    return { error: 'No puedes registrar una asistencia con fecha u hora en el futuro' }
+  }
+
+  // 2. Validar que la fecha no tenga más de 30 días de antigüedad
+  if (nowServer - fechaHoraTarget > 30 * 24 * 60 * 60 * 1000) {
+    return { error: 'La fecha no puede superar los 30 días de antigüedad' }
   }
 
   try {
@@ -165,7 +178,8 @@ export async function crearAsistenciaManual(prevState: any, formData: FormData) 
 
     // Fecha en hora local de Perú (UTC-5)
     const fechaHoraIso = new Date(`${fecha}T${hora}:00-05:00`).toISOString()
-    const manualId = `manual_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
+    const detalleHex = detalle ? Buffer.from(detalle, 'utf-8').toString('hex') : 'none'
+    const manualId = `manual_${Date.now()}_${motivoClave}_${detalleHex}_${Math.random().toString(36).substring(2, 6)}`
 
     await db.orm.public.Asistencia.create({
       id: manualId,

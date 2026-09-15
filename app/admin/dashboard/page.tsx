@@ -1,10 +1,20 @@
 import React from 'react'
 import { db } from '@/src/prisma/db'
 import { logout } from '@/actions/auth'
-import { CreateWorkerForm, WorkerActions, SettingsPanel, DateFilter, AdminLiveClock, AutoRefreshTable } from './components/DashboardClient'
+import { 
+  CreateWorkerForm, 
+  WorkerActions, 
+  SettingsPanel, 
+  DateFilter, 
+  AdminLiveClock, 
+  AutoRefreshTable,
+  WorkerListSearch,
+  ManualAttendanceButton,
+  AvatarCircle 
+} from './components/DashboardClient'
 import { LogOut, MonitorSmartphone, Clock, Users, ShieldCheck, FilterX } from 'lucide-react'
 import Link from 'next/link'
-import { getConfig } from '@/lib/configManager'
+import { getConfig, calcularEsTarde, parsearRegistroManual } from '@/lib/configManager'
 
 // Fuerza la ruta a ser dinámica para evitar el caché estático
 export const dynamic = 'force-dynamic'
@@ -51,9 +61,10 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
     if (hasta) asistenciasRaw = asistenciasRaw.filter(a => new Date(a.fecha_hora) <= new Date(`${hasta}T23:59:59.999`))
     
     // Límite de seguridad
-    if (asistenciasRaw.length > 2000) asistenciasRaw = asistenciasRaw.slice(-2000)
+    if (asistenciasRaw.length > 5000) asistenciasRaw = asistenciasRaw.slice(-5000)
   } catch (error) {
-    console.error("Error al filtrar asistencias:", error)
+    console.error("Error cargando asistencias:", error)
+    asistenciasRaw = []
   }
   
   // Mapear con fechas procesadas y ordenar de antiguo a nuevo
@@ -76,16 +87,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
     const u = trabajadores.find(t => t.id === a.usuario_id)
     
     if (!consolidados[key]) {
-      // Extraer hora y minuto en la zona horaria oficial (America/Lima)
-      const localTimeParts = new Intl.DateTimeFormat('en-US', {
-        timeZone,
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      }).formatToParts(a.fecha)
-      const localHour = parseInt(localTimeParts.find(p => p.type === 'hour')!.value)
-      const localMinute = parseInt(localTimeParts.find(p => p.type === 'minute')!.value)
-      const esTarde = (localHour > limiteHora) || (localHour === limiteHora && localMinute > limiteMin)
+      const esTarde = calcularEsTarde(a.fecha, a.usuario_id, config, timeZone)
       const fechaClave = new Intl.DateTimeFormat('en-CA', { timeZone }).format(a.fecha)
       const esHoy = fechaClave === hoyClave
 
@@ -98,10 +100,13 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
         entrada: a.fecha,
         esTarde,
         esHoy,
-        salida: null
+        salida: null,
+        manualEntrada: parsearRegistroManual(a.id),
+        manualSalida: null
       }
     } else if (!consolidados[key].salida) {
       consolidados[key].salida = a.fecha
+      consolidados[key].manualSalida = parsearRegistroManual(a.id)
     }
   })
   
@@ -141,6 +146,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
                 <span className="font-bold text-xl tracking-tight">AdminPanel</span>
               </div>
               <AdminLiveClock />
+              <ManualAttendanceButton trabajadores={trabajadores} />
             </div>
             
             <div className="flex items-center gap-2 sm:gap-4">
@@ -173,35 +179,11 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
           <div className="lg:col-span-3 space-y-6">
             <CreateWorkerForm />
 
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col max-h-[500px]">
-              <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center gap-2 shrink-0">
-                <Users className="w-5 h-5 text-gray-600" />
-                <h3 className="font-bold text-gray-800 flex-1">Trabajadores</h3>
-                <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded-full">{trabajadores.length}</span>
-              </div>
-              <ul className="divide-y divide-gray-100 overflow-y-auto overflow-x-hidden scrollbar-thin flex-1">
-                {trabajadores.length === 0 ? (
-                  <li className="p-4 text-sm text-gray-500 text-center">No hay trabajadores.</li>
-                ) : (
-                  trabajadores.map((t) => (
-                    <li key={t.id} className={`p-4 transition-colors ${workerId === t.id ? 'bg-blue-50 border-l-4 border-blue-500' : 'hover:bg-gray-50 border-l-4 border-transparent'}`}>
-                      <div className="flex flex-col gap-1">
-                        <Link href={`?workerId=${t.id}`} className="block">
-                          <span className="font-semibold text-gray-800 text-sm truncate block hover:text-blue-600 transition-colors cursor-pointer">{t.nombre_completo}</span>
-                          <span className="block text-xs text-gray-500">@{t.usuario}</span>
-                        </Link>
-                        <WorkerActions 
-                          id={t.id} 
-                          hasDevice={!!(t.device_hash && t.device_uuid)} 
-                          currentName={t.nombre_completo}
-                          currentUsuario={t.usuario}
-                        />
-                      </div>
-                    </li>
-                  ))
-                )}
-              </ul>
-            </div>
+            <WorkerListSearch 
+              trabajadores={trabajadores} 
+              workerId={workerId} 
+              horariosEspeciales={config.horariosEspeciales || {}} 
+            />
           </div>
 
           {/* COLUMNA 2: HISTORIAL DE ASISTENCIAS (Ocupa 6 de 12, es decir, el 50%) */}
@@ -267,7 +249,19 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
                           {/* REGISTROS DEL DÍA */}
                           {records.map((a) => {
                             const esPendienteHoy = !a.salida && a.esHoy
-                            const esSinSalidaPasado = !a.salida && !a.esHoy
+                            const tieneManual = a.manualEntrada?.esManual || a.manualSalida?.esManual
+                            
+                            let tooltipManual = 'Registro manual por excepción'
+                            if (tieneManual) {
+                              const partes = []
+                              if (a.manualEntrada?.esManual) {
+                                partes.push(`Entrada: ${a.manualEntrada.motivoTexto}${a.manualEntrada.detalle ? ` ("${a.manualEntrada.detalle}")` : ''}`)
+                              }
+                              if (a.manualSalida?.esManual) {
+                                partes.push(`Salida: ${a.manualSalida.motivoTexto}${a.manualSalida.detalle ? ` ("${a.manualSalida.detalle}")` : ''}`)
+                              }
+                              tooltipManual = `Registro manual por excepción:\n• ` + partes.join('\n• ')
+                            }
 
                             return (
                               <tr key={a.id} className={`transition-colors border-b border-gray-100 last:border-none ${
@@ -276,12 +270,35 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
                                   : 'hover:bg-gray-50'
                               }`}>
                                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-semibold">
-                                  {a.nombre_trabajador}
+                                  <div className="flex items-center gap-2.5">
+                                    <AvatarCircle name={a.nombre_trabajador} size="sm" />
+                                    <span className="truncate">{a.nombre_trabajador}</span>
+                                    {tieneManual && (
+                                      <span 
+                                        className="inline-flex items-center gap-1 text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 shrink-0 cursor-help" 
+                                        title={tooltipManual}
+                                      >
+                                        Manual ✍️
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-700">
-                                  {a.entrada.toLocaleTimeString('es-ES', { 
-                                    timeZone, hour: '2-digit', minute: '2-digit', second: '2-digit' 
-                                  })}
+                                  <div className="flex items-center gap-1.5">
+                                    <span>
+                                      {a.entrada.toLocaleTimeString('es-ES', { 
+                                        timeZone, hour: '2-digit', minute: '2-digit', second: '2-digit' 
+                                      })}
+                                    </span>
+                                    {a.manualEntrada?.esManual && (
+                                      <span 
+                                        className="text-amber-600 text-xs font-bold cursor-help" 
+                                        title={`Entrada manual: ${a.manualEntrada.motivoTexto}${a.manualEntrada.detalle ? ` (${a.manualEntrada.detalle})` : ''}`}
+                                      >
+                                        ✍️
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap">
                                   {a.esTarde ? (
@@ -296,11 +313,21 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
                                   {a.salida ? (
-                                    <span className="text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                                      {a.salida.toLocaleTimeString('es-ES', { 
-                                        timeZone, hour: '2-digit', minute: '2-digit', second: '2-digit' 
-                                      })}
-                                    </span>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                                        {a.salida.toLocaleTimeString('es-ES', { 
+                                          timeZone, hour: '2-digit', minute: '2-digit', second: '2-digit' 
+                                        })}
+                                      </span>
+                                      {a.manualSalida?.esManual && (
+                                        <span 
+                                          className="text-amber-600 text-xs font-bold cursor-help" 
+                                          title={`Salida manual: ${a.manualSalida.motivoTexto}${a.manualSalida.detalle ? ` (${a.manualSalida.detalle})` : ''}`}
+                                        >
+                                          ✍️
+                                        </span>
+                                      )}
+                                    </div>
                                   ) : esPendienteHoy ? (
                                     <span className="inline-flex items-center gap-1.5 text-amber-600 font-semibold">
                                       <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse inline-block" />
