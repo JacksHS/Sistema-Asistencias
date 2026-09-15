@@ -3,12 +3,33 @@
 import { useEffect, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { generarTokenKiosco } from '@/actions/kiosco'
-import { ShieldCheck, Loader2 } from 'lucide-react'
+import { ShieldCheck, Loader2, Maximize, Minimize } from 'lucide-react'
 
 export default function KioscoPage() {
   const [token, setToken] = useState<string | null>(null)
   const [progress, setProgress] = useState(100)
   const [time, setTime] = useState<Date | null>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  const toggleFullscreen = () => {
+    try {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {})
+      } else {
+        document.exitFullscreen().catch(() => {})
+      }
+    } catch (e) {
+      // Ignorar si no está soportado
+    }
+  }
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement))
+    }
+    document.addEventListener('fullscreenchange', onFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
+  }, [])
 
   useEffect(() => {
     let isMounted = true
@@ -86,6 +107,18 @@ export default function KioscoPage() {
       />
       {/* Viñeta para suavizar los bordes de la textura y dar profundidad */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_30%,_#0f172a_100%)] pointer-events-none z-0 opacity-80" />
+
+      {/* Botón Discreto de Pantalla Completa */}
+      <button
+        onClick={toggleFullscreen}
+        className="absolute top-5 right-5 z-20 p-3 rounded-2xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white backdrop-blur-md border border-white/10 transition-all active:scale-95 shadow-lg flex items-center gap-2 group"
+        title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+      >
+        {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+        <span className="text-xs font-medium pr-1 hidden group-hover:inline transition-all text-white/80">
+          {isFullscreen ? 'Salir' : 'Pantalla Completa'}
+        </span>
+      </button>
 
       {/* Reloj Digital Enorme */}
       <div className="mb-10 text-center text-white drop-shadow-2xl z-10">

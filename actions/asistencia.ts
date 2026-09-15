@@ -145,3 +145,133 @@ export async function registrarAsistencia(tokenEscaneado: string) {
     setTimeout(() => pendingRequests.delete(usuarioId), 2000)
   }
 }
+
+export async function obtenerResumenEmpleado() {
+  const session = await getSession()
+  if (!session || session.rol !== 'USER') {
+    return { error: 'No autorizado' }
+  }
+
+  const usuarioId = session.userId as string
+
+  try {
+    const usuario = await db.orm.public.Usuario.where({ id: usuarioId }).first()
+    if (!usuario) return { error: 'Usuario no encontrado' }
+
+    // Zona horaria de la aplicación
+    const tzEnv = process.env.APP_TIMEZONE || process.env.TZ
+    const timeZone = (!tzEnv || tzEnv === ':UTC' || tzEnv.startsWith(':')) ? 'America/Lima' : tzEnv
+
+    const formatter = new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' })
+    const parts = formatter.formatToParts(new Date())
+    const year = parseInt(parts.find(p => p.type === 'year')!.value)
+    const month = parseInt(parts.find(p => p.type === 'month')!.value) - 1
+    const day = parseInt(parts.find(p => p.type === 'day')!.value)
+
+    const hoy = new Date(year, month, day)
+    const manana = new Date(year, month, day + 1)
+
+    // Configuración para hora límite de tardanza
+    const { getConfig, calcularEsTarde } = await import('@/lib/configManager')
+    const config = await getConfig()
+
+    // Traer todas las asistencias del trabajador
+    const todasAsistencias = await db.orm.public.Asistencia.where({ usuario_id: usuarioId }).all()
+
+    // 1. Determinar estado de HOY
+    const asistenciasHoy = todasAsistencias.filter(a => {
+      const fecha = new Date(a.fecha_hora)
+      return fecha >= hoy && fecha < manana
+    }).sort((a, b) => new Date(a.fecha_hora).getTime() - new Date(b.fecha_hora).getTime())
+
+    let estadoHoy: {
+      tipo: 'NO_INICIADA' | 'DENTRO' | 'COMPLETADA'
+      horaEntrada: string | null
+      horaSalida: string | null
+      esTarde: boolean
+    } = {
+      tipo: 'NO_INICIADA',
+      horaEntrada: null,
+      horaSalida: null,
+      esTarde: false
+    }
+
+    if (asistenciasHoy.length === 1) {
+      const entradaDate = new Date(asistenciasHoy[0].fecha_hora)
+      const esTarde = calcularEsTarde(entradaDate, usuarioId, config, timeZone)
+
+      estadoHoy = {
+        tipo: 'DENTRO',
+        horaEntrada: entradaDate.toLocaleTimeString('es-ES', { timeZone, hour: '2-digit', minute: '2-digit', hour12: true }),
+        horaSalida: null,
+        esTarde
+      }
+    } else if (asistenciasHoy.length >= 2) {
+      const entradaDate = new Date(asistenciasHoy[0].fecha_hora)
+      const salidaDate = new Date(asistenciasHoy[asistenciasHoy.length - 1].fecha_hora)
+      const esTarde = calcularEsTarde(entradaDate, usuarioId, config, timeZone)
+
+      estadoHoy = {
+        tipo: 'COMPLETADA',
+        horaEntrada: entradaDate.toLocaleTimeString('es-ES', { timeZone, hour: '2-digit', minute: '2-digit', hour12: true }),
+        horaSalida: salidaDate.toLocaleTimeString('es-ES', { timeZone, hour: '2-digit', minute: '2-digit', hour12: true }),
+        esTarde
+      }
+    }
+
+    // 2. Consolidar marcas de los últimos 7 días (inclusive hoy)
+    const hace7Dias = new Date(year, month, day - 6)
+
+    const asistencias7Dias = todasAsistencias.filter(a => {
+      const f = new Date(a.fecha_hora)
+      return f >= hace7Dias
+    }).sort((a, b) => new Date(a.fecha_hora).getTime() - new Date(b.fecha_hora).getTime())
+
+    // Agrupar por día (fechaClave: YYYY-MM-DD)
+    const diasMap = new Map<string, { fecha: Date, fechaTexto: string, esHoy: boolean, marcas: Date[] }>()
+
+    asistencias7Dias.forEach(a => {
+      const f = new Date(a.fecha_hora)
+      const fechaClave = new Intl.DateTimeFormat('en-CA', { timeZone }).format(f) // YYYY-MM-DD
+      const fechaHoyClave = new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date())
+      const fechaTexto = new Intl.DateTimeFormat('es-ES', { timeZone, weekday: 'short', day: 'numeric', month: 'short' }).format(f)
+
+      if (!diasMap.has(fechaClave)) {
+        diasMap.set(fechaClave, { 
+          fecha: f, 
+          fechaTexto, 
+          esHoy: fechaClave === fechaHoyClave,
+          marcas: [] 
+        })
+      }
+      diasMap.get(fechaClave)!.marcas.push(f)
+    })
+
+    const historial = Array.from(diasMap.values()).map(item => {
+      const entrada = item.marcas[0]
+      const salida = item.marcas.length > 1 ? item.marcas[item.marcas.length - 1] : null
+      const esTarde = calcularEsTarde(entrada, usuarioId, config, timeZone)
+
+      return {
+        fechaTexto: item.fechaTexto,
+        esHoy: item.esHoy,
+        entrada: entrada.toLocaleTimeString('es-ES', { timeZone, hour: '2-digit', minute: '2-digit', hour12: true }),
+        salida: salida ? salida.toLocaleTimeString('es-ES', { timeZone, hour: '2-digit', minute: '2-digit', hour12: true }) : '--:--',
+        esTarde,
+        enCurso: !salida && item.esHoy,
+        sinSalida: !salida && !item.esHoy
+      }
+    }).reverse() // Ordenar de más reciente a más antiguo
+
+    return {
+      success: true,
+      nombre: usuario.nombre_completo,
+      usuario: usuario.usuario,
+      estadoHoy,
+      historial
+    }
+  } catch (error) {
+    console.error("Error al obtener resumen del trabajador:", error)
+    return { error: 'No se pudo cargar el resumen' }
+  }
+}

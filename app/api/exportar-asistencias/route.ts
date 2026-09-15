@@ -94,13 +94,21 @@ export async function GET(request: Request) {
       }
     })
 
+    const hoyClave = new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date())
+
     const asistenciasFormateadas = Object.values(consolidados).map(a => {
+      const fechaClave = new Intl.DateTimeFormat('en-CA', { timeZone }).format(a.fechaFiltro)
+      const esHoy = fechaClave === hoyClave
+      const salidaTexto = a.salida 
+        ? a.salida.toLocaleTimeString('es-ES', { timeZone, hour: '2-digit', minute: '2-digit', second: '2-digit' }) 
+        : (esHoy ? 'Pendiente' : 'No registrado')
+
       return {
         'Trabajador': a.nombre_trabajador,
         'Fecha': a.fechaFiltro.toLocaleDateString('es-ES', { timeZone }),
         'Entrada': a.entrada.toLocaleTimeString('es-ES', { timeZone, hour: '2-digit', minute: '2-digit', second: '2-digit' }),
         'Estado (Llegada)': a.esTarde ? 'Tarde' : 'Temprano',
-        'Salida': a.salida ? a.salida.toLocaleTimeString('es-ES', { timeZone, hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--:--'
+        'Salida': salidaTexto
       }
     })
 

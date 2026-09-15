@@ -69,6 +69,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
 
   // Consolidar Entrada y Salida por usuario y día en una sola fila
   const consolidados: Record<string, any> = {}
+  const hoyClave = new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date()) // YYYY-MM-DD
   
   rawConFechas.forEach(a => {
     const key = `${a.usuario_id}-${a.fechaDivisor}`
@@ -85,6 +86,8 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
       const localHour = parseInt(localTimeParts.find(p => p.type === 'hour')!.value)
       const localMinute = parseInt(localTimeParts.find(p => p.type === 'minute')!.value)
       const esTarde = (localHour > limiteHora) || (localHour === limiteHora && localMinute > limiteMin)
+      const fechaClave = new Intl.DateTimeFormat('en-CA', { timeZone }).format(a.fecha)
+      const esHoy = fechaClave === hoyClave
 
       consolidados[key] = {
         id: a.id,
@@ -94,6 +97,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
         fechaFiltro: a.fecha,
         entrada: a.fecha,
         esTarde,
+        esHoy,
         salida: null
       }
     } else if (!consolidados[key].salida) {
@@ -261,47 +265,56 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
                           </tr>
                           
                           {/* REGISTROS DEL DÍA */}
-                          {records.map((a) => (
-                            <tr key={a.id} className={`transition-colors border-b border-gray-100 last:border-none ${
-                              !a.salida 
-                                ? 'bg-amber-50/60 hover:bg-amber-50' 
-                                : 'hover:bg-gray-50'
-                            }`}>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-semibold">
-                                {a.nombre_trabajador}
-                              </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-700">
-                                {a.entrada.toLocaleTimeString('es-ES', { 
-                                  timeZone, hour: '2-digit', minute: '2-digit', second: '2-digit' 
-                                })}
-                              </td>
-                              <td className="px-4 py-3 whitespace-nowrap">
-                                {a.esTarde ? (
-                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800">
-                                    Tarde
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
-                                    Temprano
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
-                                {a.salida ? (
-                                  <span className="text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                                    {a.salida.toLocaleTimeString('es-ES', { 
-                                      timeZone, hour: '2-digit', minute: '2-digit', second: '2-digit' 
-                                    })}
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1.5 text-amber-600 font-semibold">
-                                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse inline-block" />
-                                    Pendiente
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
+                          {records.map((a) => {
+                            const esPendienteHoy = !a.salida && a.esHoy
+                            const esSinSalidaPasado = !a.salida && !a.esHoy
+
+                            return (
+                              <tr key={a.id} className={`transition-colors border-b border-gray-100 last:border-none ${
+                                esPendienteHoy 
+                                  ? 'bg-amber-50/60 hover:bg-amber-50' 
+                                  : 'hover:bg-gray-50'
+                              }`}>
+                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-semibold">
+                                  {a.nombre_trabajador}
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-700">
+                                  {a.entrada.toLocaleTimeString('es-ES', { 
+                                    timeZone, hour: '2-digit', minute: '2-digit', second: '2-digit' 
+                                  })}
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap">
+                                  {a.esTarde ? (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800">
+                                      Tarde
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                                      Temprano
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                                  {a.salida ? (
+                                    <span className="text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                                      {a.salida.toLocaleTimeString('es-ES', { 
+                                        timeZone, hour: '2-digit', minute: '2-digit', second: '2-digit' 
+                                      })}
+                                    </span>
+                                  ) : esPendienteHoy ? (
+                                    <span className="inline-flex items-center gap-1.5 text-amber-600 font-semibold">
+                                      <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse inline-block" />
+                                      Pendiente
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-gray-500 bg-gray-100 border border-gray-200">
+                                      No registrado
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            )
+                          })}
                         </React.Fragment>
                       ))
                     )}

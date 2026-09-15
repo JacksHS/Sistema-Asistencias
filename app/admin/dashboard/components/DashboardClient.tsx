@@ -2,8 +2,9 @@
 
 import { useActionState, useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { crearTrabajador, resetearDispositivo, eliminarTrabajador, editarTrabajador, guardarConfiguracion } from '@/actions/admin'
-import { Loader2, RefreshCcw, Smartphone, UserPlus, Pencil, Trash2, Settings, AlertTriangle, ChevronUp, ChevronDown, Clock, Eye, EyeOff } from 'lucide-react'
+import Link from 'next/link'
+import { crearTrabajador, resetearDispositivo, eliminarTrabajador, editarTrabajador, guardarConfiguracion, crearAsistenciaManual } from '@/actions/admin'
+import { Loader2, RefreshCcw, Smartphone, UserPlus, Pencil, Trash2, Settings, AlertTriangle, ChevronUp, ChevronDown, Clock, Eye, EyeOff, Search, PenSquare, Users } from 'lucide-react'
 import { toast } from 'sonner'
 
 // MODAL CONFIRMACION
@@ -42,18 +43,20 @@ function ConfirmModal({ isOpen, title, message, onConfirm, onCancel, confirmText
 // MODAL DE EDICIÓN DE TRABAJADOR
 function EditWorkerModal({ isOpen, worker, onClose, onSave, isPending }: {
   isOpen: boolean
-  worker: { id: string; nombre: string; usuario: string } | null
+  worker: { id: string; nombre: string; usuario: string; horarioEspecial?: string } | null
   onClose: () => void
-  onSave: (nombre: string) => void
+  onSave: (nombre: string, horarioEspecial?: string) => void
   isPending: boolean
 }) {
   const [nombre, setNombre] = useState('')
+  const [horarioEspecial, setHorarioEspecial] = useState('')
   const [showPassword, setShowPassword] = useState(false)
 
   // Rellenar campos cuando se abre el modal
   useEffect(() => {
     if (worker) {
       setNombre(worker.nombre)
+      setHorarioEspecial(worker.horarioEspecial || '')
       setShowPassword(false)
     }
   }, [worker])
@@ -66,7 +69,7 @@ function EditWorkerModal({ isOpen, worker, onClose, onSave, isPending }: {
       toast.error('El nombre debe tener al menos 3 letras')
       return
     }
-    onSave(nombre.trim())
+    onSave(nombre.trim(), horarioEspecial.trim())
   }
 
   return (
@@ -97,6 +100,22 @@ function EditWorkerModal({ isOpen, worker, onClose, onSave, isPending }: {
               className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all text-slate-800 font-medium hover:border-gray-300"
               placeholder="Ej. Juan Pérez Gómez"
             />
+          </div>
+
+          {/* Horario de Entrada Especial (Opcional) */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              Horario de Entrada Especial <span className="font-normal text-gray-400">— Opcional</span>
+            </label>
+            <input
+              type="time"
+              value={horarioEspecial}
+              onChange={e => setHorarioEspecial(e.target.value)}
+              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all text-slate-800 font-medium hover:border-gray-300"
+            />
+            <p className="text-xs text-gray-400 mt-1 pl-1">
+              Dejar vacío para que este trabajador use el horario general de la empresa.
+            </p>
           </div>
 
           {/* Usuario — Solo lectura */}
