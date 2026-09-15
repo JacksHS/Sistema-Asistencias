@@ -13,10 +13,26 @@ export default function KioscoPage() {
 
   const toggleFullscreen = () => {
     try {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(() => {})
+      const doc: any = document
+      const docEl: any = document.documentElement
+      const isFull = Boolean(doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement)
+
+      if (!isFull) {
+        if (docEl.requestFullscreen) {
+          docEl.requestFullscreen().catch(() => {})
+        } else if (docEl.webkitRequestFullscreen) {
+          docEl.webkitRequestFullscreen()
+        } else if (docEl.msRequestFullscreen) {
+          docEl.msRequestFullscreen()
+        }
       } else {
-        document.exitFullscreen().catch(() => {})
+        if (doc.exitFullscreen) {
+          doc.exitFullscreen().catch(() => {})
+        } else if (doc.webkitExitFullscreen) {
+          doc.webkitExitFullscreen()
+        } else if (doc.msExitFullscreen) {
+          doc.msExitFullscreen()
+        }
       }
     } catch (e) {
       // Ignorar si no está soportado
@@ -25,10 +41,15 @@ export default function KioscoPage() {
 
   useEffect(() => {
     const onFullscreenChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement))
+      const doc: any = document
+      setIsFullscreen(Boolean(doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement))
     }
     document.addEventListener('fullscreenchange', onFullscreenChange)
-    return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
+    document.addEventListener('webkitfullscreenchange', onFullscreenChange)
+    return () => {
+      document.removeEventListener('fullscreenchange', onFullscreenChange)
+      document.removeEventListener('webkitfullscreenchange', onFullscreenChange)
+    }
   }, [])
 
   useEffect(() => {
