@@ -138,45 +138,76 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
         {/* Viñeta para suavizar los bordes */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_30%,_#0f172a_100%)] pointer-events-none z-0 opacity-80" />
 
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="flex justify-between min-h-16 py-3 items-center flex-wrap gap-3">
-            <div className="flex items-center gap-3 flex-wrap">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2.5 sm:py-3 gap-2.5 sm:gap-4">
+            
+            {/* Fila 1 en móvil / Lado izquierdo en desktop */}
+            <div className="flex items-center justify-between sm:justify-start gap-3 w-full sm:w-auto">
               <div className="flex items-center gap-2">
-                <ShieldCheck className="text-emerald-400 w-6 h-6" />
-                <span className="font-bold text-xl tracking-tight">AdminPanel</span>
+                <ShieldCheck className="text-emerald-400 w-6 h-6 shrink-0" />
+                <span className="font-bold text-lg sm:text-xl tracking-tight text-white">AdminPanel</span>
               </div>
+
+              {/* Botones de acción en móvil (Kiosco y Salir alineados a la derecha) */}
+              <div className="flex sm:hidden items-center gap-2">
+                <Link 
+                  href="/kiosco" 
+                  target="_blank"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
+                >
+                  <MonitorSmartphone className="w-3.5 h-3.5" />
+                  <span>Kiosco</span>
+                </Link>
+                
+                <form action={logout}>
+                  <button type="submit" className="text-slate-300 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors" title="Cerrar sesión">
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </form>
+              </div>
+
+              {/* En desktop: Reloj y botón de Registro Manual van junto al logo */}
+              <div className="hidden sm:flex items-center gap-3 ml-2">
+                <AdminLiveClock />
+                <ManualAttendanceButton trabajadores={trabajadores} />
+              </div>
+            </div>
+
+            {/* Fila 2 en móvil: Reloj y Registro Manual equilibrados y separados */}
+            <div className="flex sm:hidden items-center justify-between gap-2 pt-2 border-t border-slate-800/80 w-full">
               <AdminLiveClock />
               <ManualAttendanceButton trabajadores={trabajadores} />
             </div>
-            
-            <div className="flex items-center gap-2 sm:gap-4">
+
+            {/* En desktop: Botones Kiosco y Salir a la derecha */}
+            <div className="hidden sm:flex items-center gap-3">
               <Link 
                 href="/kiosco" 
                 target="_blank"
-                className="bg-emerald-600 hover:bg-emerald-500 px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors shadow-sm"
               >
                 <MonitorSmartphone className="w-4 h-4" />
-                <span className="hidden sm:inline">Abrir Kiosco Seguro</span>
-                <span className="sm:hidden">Kiosco</span>
+                <span>Abrir Kiosco Seguro</span>
               </Link>
               
               <form action={logout}>
-                <button type="submit" className="text-slate-300 hover:text-white px-3 py-2 flex items-center gap-2 text-sm font-medium transition-colors">
-                  <LogOut className="w-4 h-4" /> <span className="hidden sm:inline">Salir</span>
+                <button type="submit" className="text-slate-300 hover:text-white px-3 py-2 flex items-center gap-1.5 text-sm font-medium hover:bg-slate-800 rounded-lg transition-colors">
+                  <LogOut className="w-4 h-4" /> <span>Salir</span>
                 </button>
               </form>
             </div>
+
           </div>
         </div>
       </nav>
 
       {/* CONTENIDO */}
-      <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Nuevo Layout: 12 columnas en total para dar más espacio a la tabla central */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Layout Ampliado: Grid adaptativo que otorga todo el ancho restante a la tabla central */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 xl:grid-cols-[320px_minmax(0,1fr)_320px] 2xl:grid-cols-[330px_minmax(0,1fr)_330px] gap-6">
           
-          {/* COLUMNA 1: TRABAJADORES Y CRUD (Ocupa 3 de 12) */}
-          <div className="lg:col-span-3 space-y-6">
+          {/* COLUMNA 1: TRABAJADORES Y CRUD */}
+          <div className="lg:col-span-3 xl:col-auto space-y-6">
             <CreateWorkerForm />
 
             <WorkerListSearch 
@@ -186,41 +217,45 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
             />
           </div>
 
-          {/* COLUMNA 2: HISTORIAL DE ASISTENCIAS (Ocupa 6 de 12, es decir, el 50%) */}
-          <div className="lg:col-span-6">
+          {/* COLUMNA 2: HISTORIAL DE ASISTENCIAS (AMPLIADO) */}
+          <div className="lg:col-span-6 xl:col-auto min-w-0">
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden h-[830px] flex flex-col">
               <AutoRefreshTable intervalSeconds={6} />
-              <div className="p-4 bg-gray-50 border-b border-gray-200 flex flex-col xl:flex-row xl:items-start justify-between gap-4 shrink-0">
-                <div className="flex items-center gap-2 mt-2">
-                  <Clock className="w-5 h-5 text-gray-600" />
-                  <h3 className="font-bold text-gray-800 flex items-center gap-2 flex-wrap">
-                    <span>{trabajadorActivo ? `Asistencias de ${trabajadorActivo.nombre_completo}` : 'Últimas Asistencias'}</span>
+              <div className="p-4 bg-gray-50 border-b border-gray-200 flex flex-col 2xl:flex-row 2xl:items-center justify-between gap-3.5 shrink-0">
+                <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+                  <div className="bg-white p-2 rounded-lg border border-gray-200 shadow-2xs text-slate-700">
+                    <Clock className="w-4 h-4" />
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-bold text-gray-800 text-sm sm:text-base whitespace-nowrap">
+                      {trabajadorActivo ? `Asistencias: ${trabajadorActivo.nombre_completo}` : 'Últimas Asistencias'}
+                    </h3>
                     {!desde && !hasta && (
-                      <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                      <span className="text-[10px] font-bold text-slate-600 bg-slate-200/80 px-2 py-0.5 rounded-full border border-slate-300/80 whitespace-nowrap">
                         Últimos 30 días
                       </span>
                     )}
-                  </h3>
+                  </div>
                   {workerId && (
-                    <Link href={`?desde=${desde||''}&hasta=${hasta||''}`} className="text-xs flex items-center gap-1 bg-red-100 text-red-700 px-2 py-1.5 rounded-lg hover:bg-red-200 font-medium transition-colors ml-2">
+                    <Link href={`?desde=${desde||''}&hasta=${hasta||''}`} className="text-xs flex items-center gap-1 bg-red-100 text-red-700 px-2.5 py-1 rounded-lg hover:bg-red-200 font-semibold transition-colors">
                       <FilterX className="w-3.5 h-3.5" /> Quitar
                     </Link>
                   )}
                 </div>
 
-                <div className="w-full xl:w-auto flex-shrink-0">
+                <div className="w-full 2xl:w-auto flex-shrink-0">
                   <DateFilter workerId={workerId} />
                 </div>
               </div>
               
               <div className="overflow-x-auto overflow-y-auto flex-1 pb-10 relative">
-                <table className="min-w-full">
+                <table className="min-w-full w-full">
                   <thead className="bg-gray-50 sticky top-0 shadow-sm z-10 border-b border-gray-200">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trabajador</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entrada</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Llegada</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Salida</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Trabajador</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Entrada</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Llegada</th>
+                      <th className="px-5 pr-7 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Salida</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white">
@@ -269,7 +304,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
                                   ? 'bg-amber-50/60 hover:bg-amber-50' 
                                   : 'hover:bg-gray-50'
                               }`}>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-semibold">
+                                <td className="px-5 py-3 whitespace-nowrap text-sm text-gray-700 font-semibold">
                                   <div className="flex items-center gap-2.5">
                                     <AvatarCircle name={a.nombre_trabajador} size="sm" />
                                     <span className="truncate">{a.nombre_trabajador}</span>
@@ -311,7 +346,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
                                     </span>
                                   )}
                                 </td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                                <td className="px-5 pr-7 py-3 whitespace-nowrap text-sm font-medium">
                                   {a.salida ? (
                                     <div className="flex items-center gap-1.5">
                                       <span className="text-blue-600 bg-blue-50 px-2 py-1 rounded">
@@ -351,8 +386,8 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
             </div>
           </div>
 
-          {/* COLUMNA 3: CONFIGURACIÓN (Ocupa 3 de 12) */}
-          <div className="lg:col-span-3">
+          {/* COLUMNA 3: CONFIGURACIÓN */}
+          <div className="lg:col-span-3 xl:col-auto">
             <SettingsPanel initialConfig={config} />
           </div>
 

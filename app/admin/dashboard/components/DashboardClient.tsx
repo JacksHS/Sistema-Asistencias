@@ -532,6 +532,22 @@ export function SettingsPanel({ initialConfig }: { initialConfig: any }) {
   const [config, setConfig] = useState(initialConfig)
   const [isPending, startTransition] = useTransition()
   const [pendingToggle, setPendingToggle] = useState<{key: string, value: boolean} | null>(null)
+  const [showTolerancia, setShowTolerancia] = useState(false)
+  const [localTolerancia, setLocalTolerancia] = useState<string>(String(config.toleranciaMinutos ?? 0))
+
+  useEffect(() => {
+    setLocalTolerancia(String(config.toleranciaMinutos ?? 0))
+  }, [config.toleranciaMinutos])
+
+  const commitTolerancia = () => {
+    let val = parseInt(localTolerancia, 10)
+    if (isNaN(val) || val < 0) val = 0
+    if (val > 60) val = 60
+    setLocalTolerancia(String(val))
+    if (val !== (config.toleranciaMinutos ?? 0)) {
+      applyToggle('toleranciaMinutos', val)
+    }
+  }
 
   const applyToggle = (key: string, value: boolean | string | number) => {
     const newConfig = { ...config, [key]: value }
@@ -644,23 +660,63 @@ export function SettingsPanel({ initialConfig }: { initialConfig: any }) {
             disabled={isPending}
           />
 
-          {/* Línea pequeña debajo del reloj: [ N ] minutos de tolerancia */}
-          <div className="mt-4 flex items-center justify-center gap-2 bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 shadow-inner">
-            <span className="text-xs font-semibold text-slate-500">+</span>
-            <input 
-              type="number" 
-              min={0}
-              max={60}
-              value={config.toleranciaMinutos ?? 0}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10)
-                applyToggle('toleranciaMinutos', isNaN(val) ? 0 : Math.max(0, Math.min(60, val)))
-              }}
-              disabled={isPending}
-              className="w-14 text-center font-bold text-slate-800 bg-white border border-slate-300 rounded-lg px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-emerald-500 transition-all shadow-sm"
-              placeholder="0"
-            />
-            <span className="text-xs font-semibold text-slate-600">minutos de tolerancia</span>
+          {/* Desplegable de minutos de tolerancia con flecha / V grande y animación suave */}
+          <div className="mt-4 pt-3 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => setShowTolerancia(!showTolerancia)}
+              className="w-full flex items-center justify-between px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100/90 border border-slate-200/80 rounded-xl transition-all text-left group cursor-pointer shadow-2xs"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-700">Minutos de tolerancia</span>
+                {(config.toleranciaMinutos ?? 0) > 0 && (
+                  <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-300">
+                    +{config.toleranciaMinutos} min
+                  </span>
+                )}
+              </div>
+              <ChevronDown 
+                className={`w-5 h-5 text-slate-400 group-hover:text-emerald-600 transition-transform duration-300 ease-in-out shrink-0 ${
+                  showTolerancia ? 'rotate-180 text-emerald-600' : ''
+                }`} 
+              />
+            </button>
+
+            {/* Contenedor desplegable con animación suave */}
+            <div 
+              className={`grid transition-all duration-300 ease-in-out overflow-hidden ${
+                showTolerancia ? 'grid-rows-[1fr] opacity-100 mt-2.5' : 'grid-rows-[0fr] opacity-0 mt-0'
+              }`}
+            >
+              <div className="overflow-hidden space-y-2">
+                <div className="flex items-center justify-center gap-2 bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 shadow-inner">
+                  <span className="text-xs font-semibold text-slate-500">+</span>
+                  <input 
+                    type="text" 
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={localTolerancia}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, '').slice(0, 2)
+                      setLocalTolerancia(raw)
+                    }}
+                    onBlur={commitTolerancia}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.currentTarget.blur()
+                      }
+                    }}
+                    disabled={isPending}
+                    className="w-14 text-center font-bold text-slate-800 bg-white border border-slate-300 rounded-lg px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-emerald-500 transition-all shadow-sm"
+                    placeholder="0"
+                  />
+                  <span className="text-xs font-semibold text-slate-600">minutos de tolerancia</span>
+                </div>
+                <p className="text-[11px] text-slate-400 text-center px-1">
+                  Margen de gracia permitido antes de clasificar como tardanza.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
