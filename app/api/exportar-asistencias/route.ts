@@ -342,7 +342,7 @@ export async function GET(request: Request) {
         if (a.manualSalida?.esManual) {
           motivos.push(`Salida: ${a.manualSalida.motivoTexto}${a.manualSalida.detalle ? ` ("${a.manualSalida.detalle}")` : ''}`)
         }
-        cellF.value = `✍️ Excepción Manual [${motivos.join(' | ')}]`
+        cellF.value = `✍️ Excepción Manual`
         cellF.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF9C3' } } // Soft yellow
         cellF.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF854D0E' } }
         cellF.border = {
