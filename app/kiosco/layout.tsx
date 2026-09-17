@@ -1,5 +1,5 @@
-﻿import { redirect } from 'next/navigation'
-import { getSession } from '@/lib/session'
+import { redirect } from 'next/navigation'
+import { getSession, getKioskSession } from '@/lib/session'
 
 export default async function KioscoLayout({
   children,
@@ -7,10 +7,12 @@ export default async function KioscoLayout({
   children: React.ReactNode
 }) {
   const session = await getSession()
+  const kioskSession = await getKioskSession()
   
-  // Si no hay sesión o el usuario no es un administrador, bloqueamos el acceso
-  if (!session || session.rol !== 'ADMIN') {
-    redirect('/login')
+  // Acceso autorizado si el Administrador está activo o si el Kiosco ya cuenta con su sesión propia
+  const isAuthorized = (session && session.rol === 'ADMIN') || (kioskSession && kioskSession.rol === 'KIOSK')
+  if (!isAuthorized) {
+    redirect('/')
   }
 
   return <>{children}</>

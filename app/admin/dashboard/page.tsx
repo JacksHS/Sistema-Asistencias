@@ -15,6 +15,7 @@ import {
 import { LogOut, MonitorSmartphone, Clock, Users, ShieldCheck, FilterX } from 'lucide-react'
 import Link from 'next/link'
 import { getConfig, calcularEsTarde, parsearRegistroManual } from '@/lib/configManager'
+import { obtenerEstadoKiosco } from '@/actions/kiosco'
 
 // Fuerza la ruta a ser dinámica para evitar el caché estático
 export const dynamic = 'force-dynamic'
@@ -27,6 +28,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
     .sort((a, b) => a.nombre_completo.localeCompare(b.nombre_completo))
 
   const config = await getConfig()
+  const kioskStatus = await obtenerEstadoKiosco()
   const [limiteHora, limiteMin] = (config.horaLimiteTardanza || '09:00').split(':').map(Number)
 
   // Construir filtros SQL para evitar desbordamiento de memoria
@@ -157,6 +159,9 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
                 >
                   <MonitorSmartphone className="w-3.5 h-3.5" />
                   <span>Kiosco</span>
+                  {kioskStatus.activo && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" title="Kiosco activo en recepción" />
+                  )}
                 </Link>
                 
                 <form action={logout}>
@@ -184,10 +189,16 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
               <Link 
                 href="/kiosco" 
                 target="_blank"
-                className="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors shadow-sm"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors shadow-sm group"
               >
                 <MonitorSmartphone className="w-4 h-4" />
                 <span>Abrir Kiosco Seguro</span>
+                {kioskStatus.activo && (
+                  <span className="flex h-2 w-2 relative" title="Kiosco activo en recepción">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-200 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-300"></span>
+                  </span>
+                )}
               </Link>
               
               <form action={logout}>
@@ -248,7 +259,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
                 </div>
               </div>
               
-              <div className="overflow-x-auto overflow-y-auto flex-1 pb-10 relative">
+              <div className="overflow-x-auto overflow-y-auto flex-1 pb-10 relative custom-scrollbar">
                 <table className="min-w-full w-full">
                   <thead className="bg-gray-50 sticky top-0 shadow-sm z-10 border-b border-gray-200">
                     <tr>

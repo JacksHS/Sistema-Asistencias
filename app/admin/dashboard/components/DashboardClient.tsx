@@ -974,7 +974,7 @@ export function WorkerListSearch({
       </div>
 
       {/* Lista scrolleable */}
-      <ul className="divide-y divide-gray-100 overflow-y-auto overflow-x-hidden scrollbar-thin flex-1">
+      <ul className="divide-y divide-gray-100 overflow-y-auto overflow-x-hidden custom-scrollbar flex-1">
         {filtrados.length === 0 ? (
           <li className="p-6 text-xs text-gray-400 text-center flex flex-col items-center gap-2">
             <span>No se encontraron trabajadores para &ldquo;{query}&rdquo;</span>

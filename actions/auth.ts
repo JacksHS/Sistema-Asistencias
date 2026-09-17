@@ -72,11 +72,9 @@ export async function login(prevState: any, formData: FormData) {
 
       let kioskIp = globalThis.__LAST_KIOSK_IP__
       if (!kioskIp) {
-        const admins = await db.orm.public.Usuario.where({ rol: 'ADMIN' }).all()
-        const activeAdmin = admins
-          .filter(a => a.device_hash)
-          .sort((a, b) => Number(b.device_uuid || 0) - Number(a.device_uuid || 0))[0]
-        kioskIp = activeAdmin?.device_hash || undefined
+        const { getKioskLease } = await import('@/lib/configManager')
+        const lease = await getKioskLease()
+        kioskIp = lease?.ip || undefined
         if (kioskIp) {
           globalThis.__LAST_KIOSK_IP__ = kioskIp
         }
@@ -126,20 +124,55 @@ export async function login(prevState: any, formData: FormData) {
         return { error: 'Llave de dispositivo no reconocida. Contacte al administrador.' }
       }
     }
-  }
 
-  // 4. Crear sesión
-  await createSession(usuario.id, usuario.rol)
-
-  // 5. Redirigir según el rol
-  if (usuario.rol === 'ADMIN') {
-    redirect('/admin/dashboard')
-  } else {
+    // 4. Crear sesión para USER (2 minutos)
+    await createSession(usuario.id, usuario.rol)
     redirect('/empleado/escanear')
   }
+
+  // 3. Verificación de Exclusividad de Sesión para ADMIN (Solo 1 sesión activa a la vez)
+  if (usuario.rol === 'ADMIN') {
+    if (usuario.device_uuid && usuario.device_uuid.includes('__')) {
+      const parts = usuario.device_uuid.split('__')
+      const activeExpiresAt = Number(parts[1] || 0)
+      
+      // Si la sesión guardada aún no ha expirado (10 minutos), bloquear el nuevo login
+      if (activeExpiresAt && Date.now() < activeExpiresAt) {
+        return { error: 'Hay una sesión activa. Cierre dicha sesión para ingresar.' }
+      }
+    }
+
+    // Registrar nuevo ID de sesión y tiempo de expiración (10 minutos)
+    const newSessionId = crypto.randomUUID()
+    const newExpiresAt = Date.now() + 10 * 60 * 1000
+
+    await db.orm.public.Usuario.where({ id: usuario.id }).update({
+      device_uuid: `${newSessionId}__${newExpiresAt}`
+    })
+
+    // 4. Crear sesión para ADMIN (10 minutos)
+    await createSession(usuario.id, usuario.rol, newSessionId)
+    redirect('/admin/dashboard')
+  }
+
+  return { error: 'Rol no autorizado' }
 }
 
 export async function logout() {
+  const { getSession, deleteSession } = await import('@/lib/session')
+  const session = await getSession()
+  
+  // Liberar candado exclusivo de sesión para el administrador inmediatamente al salir
+  if (session && session.userId && session.rol === 'ADMIN') {
+    try {
+      await db.orm.public.Usuario.where({ id: session.userId as string }).update({
+        device_uuid: null
+      })
+    } catch (e) {
+      console.error("Error liberando sesión de admin:", e)
+    }
+  }
+
   await deleteSession()
   redirect('/')
 }

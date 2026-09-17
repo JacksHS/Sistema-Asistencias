@@ -276,7 +276,7 @@ export async function GET(request: Request) {
       const horaEntrada = a.entrada.toLocaleTimeString('es-ES', { 
         timeZone, hour: '2-digit', minute: '2-digit', second: '2-digit' 
       })
-      cellC.value = a.manualEntrada?.esManual ? `${horaEntrada} ✍️` : horaEntrada
+      cellC.value = a.manualEntrada?.esManual ? `${horaEntrada}` : horaEntrada
       cellC.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: zebraBg } }
       cellC.font = { name: 'Segoe UI', size: 10, color: { argb: 'FF0F172A' } }
       cellC.alignment = { horizontal: 'center', vertical: 'middle' }
@@ -351,7 +351,7 @@ export async function GET(request: Request) {
           bottom: { style: 'thin', color: { argb: 'FFFDE047' } }
         }
       } else {
-        cellF.value = '📱 Ordinario (Escáner QR)'
+        cellF.value = ' Ordinario '
         cellF.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: zebraBg } }
         cellF.font = { name: 'Segoe UI', size: 9, color: { argb: 'FF64748B' } }
         cellF.border = borderFino

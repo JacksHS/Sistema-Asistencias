@@ -72,19 +72,115 @@ export const getConfig = async (): Promise<AppConfig> => {
   }
 }
 
+export interface KioskLease {
+  deviceId: string
+  lastPing: number
+  ip: string
+}
+
+declare global {
+  var __ACTIVE_KIOSK_LEASE__: KioskLease | undefined
+}
+
+export const getKioskLease = async (): Promise<KioskLease | null> => {
+  try {
+    if (globalThis.__ACTIVE_KIOSK_LEASE__ && (Date.now() - globalThis.__ACTIVE_KIOSK_LEASE__.lastPing < 10000)) {
+      return globalThis.__ACTIVE_KIOSK_LEASE__
+    }
+
+    const row = await db.orm.public.Configuracion.where({ id: 'singleton' }).first()
+    if (!row || !row.hora_limite_tardanza) return null
+
+    if (row.hora_limite_tardanza.startsWith('{')) {
+      const parsed = JSON.parse(row.hora_limite_tardanza)
+      if (parsed.kioskLease) {
+        globalThis.__ACTIVE_KIOSK_LEASE__ = parsed.kioskLease
+        return parsed.kioskLease
+      }
+    }
+    return null
+  } catch (e) {
+    console.error("Error reading kiosk lease:", e)
+    return globalThis.__ACTIVE_KIOSK_LEASE__ || null
+  }
+}
+
+export const updateKioskLease = async (lease: KioskLease): Promise<void> => {
+  try {
+    globalThis.__ACTIVE_KIOSK_LEASE__ = lease
+    globalThis.__LAST_KIOSK_IP__ = lease.ip
+
+    const row = await db.orm.public.Configuracion.where({ id: 'singleton' }).first()
+    let parsed: any = {}
+    if (row?.hora_limite_tardanza?.startsWith('{')) {
+      try {
+        parsed = JSON.parse(row.hora_limite_tardanza)
+      } catch (e) {}
+    }
+
+    parsed.kioskLease = lease
+    const rawHora = JSON.stringify(parsed)
+
+    if (row) {
+      await db.orm.public.Configuracion.where({ id: 'singleton' }).update({
+        hora_limite_tardanza: rawHora,
+      })
+    } else {
+      await db.orm.public.Configuracion.create({
+        id: 'singleton',
+        requerir_llave_navegador: defaultConfig.requerirLlaveNavegador,
+        requerir_llave_dispositivo: defaultConfig.requerirLlaveDispositivo,
+        hora_limite_tardanza: rawHora,
+        requerir_misma_red: defaultConfig.requerirMismaRed,
+      })
+    }
+  } catch (e) {
+    console.error("Error updating kiosk lease:", e)
+  }
+}
+
+export const releaseKioskLease = async (deviceId: string): Promise<void> => {
+  try {
+    if (globalThis.__ACTIVE_KIOSK_LEASE__?.deviceId === deviceId) {
+      globalThis.__ACTIVE_KIOSK_LEASE__ = undefined
+    }
+
+    const row = await db.orm.public.Configuracion.where({ id: 'singleton' }).first()
+    if (row?.hora_limite_tardanza?.startsWith('{')) {
+      const parsed = JSON.parse(row.hora_limite_tardanza)
+      if (parsed.kioskLease?.deviceId === deviceId) {
+        parsed.kioskLease = { deviceId: '', lastPing: 0, ip: '' }
+        await db.orm.public.Configuracion.where({ id: 'singleton' }).update({
+          hora_limite_tardanza: JSON.stringify(parsed),
+        })
+      }
+    }
+  } catch (e) {
+    console.error("Error releasing kiosk lease:", e)
+  }
+}
+
 export const setConfig = async (newConfig: Partial<AppConfig>): Promise<AppConfig> => {
   try {
     const current = await getConfig()
     const updated = { ...current, ...newConfig }
 
+    const existing = await db.orm.public.Configuracion.where({ id: 'singleton' }).first()
+    let existingKioskLease = undefined
+    if (existing?.hora_limite_tardanza?.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(existing.hora_limite_tardanza)
+        existingKioskLease = parsed.kioskLease
+      } catch (e) {}
+    }
+
     const rawHora = JSON.stringify({
       hora: updated.horaLimiteTardanza || '09:00',
       tolerancia: Number(updated.toleranciaMinutos) || 0,
-      horarios: updated.horariosEspeciales || {}
+      horarios: updated.horariosEspeciales || {},
+      ...(existingKioskLease ? { kioskLease: existingKioskLease } : {})
     })
 
-    const existing = await db.orm.public.Configuracion.where({ id: 'singleton' }).first()
-    
     if (existing) {
       await db.orm.public.Configuracion.where({ id: 'singleton' }).update({
         requerir_llave_navegador: updated.requerirLlaveNavegador,
