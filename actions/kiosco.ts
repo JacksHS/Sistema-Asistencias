@@ -79,6 +79,19 @@ export async function generarTokenKiosco(kioskDeviceId: string) {
 
 export async function liberarKiosco(kioskDeviceId: string) {
   if (!kioskDeviceId) return { success: false }
+
+  const { getSession, getKioskSession } = await import('@/lib/session')
+  const [session, kioskSession] = await Promise.all([getSession(), getKioskSession()])
+
+  // Permitir la liberación solo al Administrador o al propio Kiosco autorizado
+  const isAuthorized = 
+    (session && session.rol === 'ADMIN') || 
+    (kioskSession && kioskSession.rol === 'KIOSK' && (!kioskSession.kioskDeviceId || kioskSession.kioskDeviceId === kioskDeviceId))
+
+  if (!isAuthorized) {
+    return { success: false, error: 'UNAUTHORIZED' }
+  }
+
   const { releaseKioskLease } = await import('@/lib/configManager')
   await releaseKioskLease(kioskDeviceId)
   return { success: true }
