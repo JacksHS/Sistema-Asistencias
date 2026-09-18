@@ -2,10 +2,7 @@
 
 import { db } from '@/src/prisma/db'
 import { jwtVerify } from 'jose'
-import { getSession } from '@/lib/session'
-
-const secretKey = process.env.JWT_SECRET || 'clave-secreta-anti-fraude-12345'
-const encodedKey = new TextEncoder().encode(secretKey)
+import { getSession, JWT_SECRET_KEY } from '@/lib/session'
 
 // Bloqueo temporal para evitar "Race Conditions" (doble click/scan en el mismo segundo)
 const pendingRequests = new Set<string>()
@@ -31,7 +28,7 @@ export async function registrarAsistencia(tokenEscaneado: string) {
     // 3. Desencriptar y validar el token del QR
     let payload: any
     try {
-      const verificado = await jwtVerify(tokenEscaneado, encodedKey, {
+      const verificado = await jwtVerify(tokenEscaneado, JWT_SECRET_KEY, {
         algorithms: ['HS256']
       })
       payload = verificado.payload

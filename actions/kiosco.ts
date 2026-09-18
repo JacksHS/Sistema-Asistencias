@@ -2,13 +2,11 @@
 
 import { SignJWT } from 'jose'
 import { db } from '@/src/prisma/db'
+import { JWT_SECRET_KEY } from '@/lib/session'
 
 declare global {
   var __LAST_KIOSK_IP__: string | undefined
 }
-
-const secretKey = process.env.JWT_SECRET || 'clave-secreta-anti-fraude-12345'
-const encodedKey = new TextEncoder().encode(secretKey)
 
 export async function generarTokenKiosco(kioskDeviceId: string) {
   if (!kioskDeviceId) {
@@ -74,7 +72,7 @@ export async function generarTokenKiosco(kioskDeviceId: string) {
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('2m') 
-    .sign(encodedKey)
+    .sign(JWT_SECRET_KEY)
 
   return { success: true, token }
 }

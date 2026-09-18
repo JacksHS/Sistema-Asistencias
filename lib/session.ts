@@ -1,13 +1,29 @@
 import { SignJWT, jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
 
-if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
-  console.warn('⚠️ CRITICAL WARNING: JWT_SECRET is missing in production. Falling back to default insecure key. ⚠️')
+const secret = process.env.JWT_SECRET
+
+// Validación estricta de seguridad: En producción (especialmente en Vercel)
+// no se permite arrancar ni operar con una clave fallback por defecto.
+if (process.env.NODE_ENV === 'production') {
+  if (!secret) {
+    if (process.env.VERCEL) {
+      throw new Error('FATAL SECURITY ERROR: JWT_SECRET debe estar configurado en las variables de entorno de Vercel.')
+    } else {
+      console.warn('⚠️ CRITICAL WARNING: JWT_SECRET no está configurado en producción. Configure esta variable antes de desplegar.')
+    }
+  } else if (secret.length < 32) {
+    console.warn('⚠️ ADVERTENCIA: JWT_SECRET tiene menos de 32 caracteres. Se recomienda una clave de 256 bits.')
+  }
 }
-const secretKey = process.env.JWT_SECRET || 'clave-secreta-anti-fraude-12345'
-const encodedKey = new TextEncoder().encode(secretKey)
+
+export const JWT_SECRET_KEY = new TextEncoder().encode(secret || 'dev-only-insecure-secret-key-conver-32chars!!')
+const encodedKey = JWT_SECRET_KEY
 
 export async function encrypt(payload: any, expiresIn: string = '8m') {
+  if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+    throw new Error('FATAL SECURITY ERROR: No se pueden emitir tokens JWT sin la variable de entorno JWT_SECRET definida.')
+  }
   return new SignJWT(payload)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
