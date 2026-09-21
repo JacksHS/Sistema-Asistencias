@@ -3,6 +3,7 @@
 import { db } from '@/src/prisma/db'
 import bcrypt from 'bcryptjs'
 import { revalidatePath } from 'next/cache'
+import type { AppConfig } from '@/lib/configManager'
 
 export async function crearTrabajador(prevState: any, formData: FormData) {
   const { getSession } = await import('@/lib/session')
@@ -66,17 +67,58 @@ export async function resetearDispositivo(id: string) {
   }
 }
 
-export async function guardarConfiguracion(config: any) {
+export async function guardarConfiguracion(rawConfig: unknown) {
   const { getSession } = await import('@/lib/session')
   const session = await getSession()
   if (!session || session.rol !== 'ADMIN') return { error: 'No autorizado' }
 
+  if (!rawConfig || typeof rawConfig !== 'object') {
+    return { error: 'Datos de configuración inválidos' }
+  }
+
+  const c = rawConfig as Partial<AppConfig>
+  const sanitized: Partial<AppConfig> = {}
+
+  if (c.requerirLlaveNavegador !== undefined) {
+    sanitized.requerirLlaveNavegador = Boolean(c.requerirLlaveNavegador)
+  }
+  if (c.requerirLlaveDispositivo !== undefined) {
+    sanitized.requerirLlaveDispositivo = Boolean(c.requerirLlaveDispositivo)
+  }
+  if (c.requerirMismaRed !== undefined) {
+    sanitized.requerirMismaRed = Boolean(c.requerirMismaRed)
+  }
+  if (c.horaLimiteTardanza !== undefined) {
+    if (typeof c.horaLimiteTardanza === 'string' && /^\d{1,2}:\d{2}$/.test(c.horaLimiteTardanza)) {
+      const [h, m] = c.horaLimiteTardanza.split(':').map(Number)
+      if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+        sanitized.horaLimiteTardanza = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+      }
+    }
+  }
+  if (c.toleranciaMinutos !== undefined) {
+    const tol = Number(c.toleranciaMinutos)
+    if (!isNaN(tol)) {
+      sanitized.toleranciaMinutos = Math.min(Math.max(0, Math.floor(tol)), 60)
+    }
+  }
+  if (c.horariosEspeciales !== undefined && typeof c.horariosEspeciales === 'object' && c.horariosEspeciales !== null) {
+    const validHorarios: Record<string, string> = {}
+    for (const [userId, timeStr] of Object.entries(c.horariosEspeciales)) {
+      if (typeof userId === 'string' && typeof timeStr === 'string' && /^\d{1,2}:\d{2}$/.test(timeStr)) {
+        validHorarios[userId.slice(0, 50)] = timeStr
+      }
+    }
+    sanitized.horariosEspeciales = validHorarios
+  }
+
   try {
     const { setConfig } = await import('@/lib/configManager')
-    await setConfig(config)
+    await setConfig(sanitized)
     revalidatePath('/admin/dashboard')
     return { success: 'Configuración guardada' }
   } catch (error) {
+    console.error('Error guardando configuración:', error)
     return { error: 'Error guardando configuración' }
   }
 }
