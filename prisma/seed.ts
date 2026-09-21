@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { db } from '../src/prisma/db';
 import bcrypt from 'bcryptjs';
 

@@ -191,6 +191,6 @@ export async function crearAsistenciaManual(prevState: any, formData: FormData) 
     return { success: 'Asistencia manual registrada con éxito', error: '' }
   } catch (error: any) {
     console.error('Error al crear asistencia manual:', error)
-    return { error: 'Error al registrar: ' + (error?.message || String(error)) }
+    return { error: 'Ocurrió un error al registrar la asistencia manual. Intenta nuevamente.' }
   }
 }

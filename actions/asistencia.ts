@@ -136,7 +136,7 @@ export async function registrarAsistencia(tokenEscaneado: string) {
     if (errorMsg.includes('foreign key') || errorMsg.includes('violates foreign key constraint')) {
       return { error: 'Tu sesión no pertenece a un usuario válido en esta base de datos. Cierra sesión y vuelve a ingresar.' }
     }
-    return { error: `Error en base de datos: ${errorMsg}` }
+    return { error: 'Ocurrió un error interno al registrar la asistencia. Intenta de nuevo o contacte al administrador.' }
   } finally {
     // Liberar el candado después de 2 segundos — siempre se ejecuta, sin importar qué
     setTimeout(() => pendingRequests.delete(usuarioId), 2000)
