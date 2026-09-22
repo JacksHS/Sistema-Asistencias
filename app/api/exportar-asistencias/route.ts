@@ -110,12 +110,12 @@ export async function GET(request: Request) {
 
     // Ancho de Columnas
     worksheet.columns = [
-      { key: 'trabajador', width: 34 },
+      { key: 'trabajador', width: 45 },
       { key: 'fecha', width: 16 },
       { key: 'entrada', width: 16 },
       { key: 'estado', width: 20 },
       { key: 'salida', width: 18 },
-      { key: 'tipo', width: 44 }
+      { key: 'tipo', width: 24 }
     ]
 
     // --- FILA 1: Espaciador superior ---
@@ -193,7 +193,7 @@ export async function GET(request: Request) {
       { col: 'C', text: 'ENTRADA' },
       { col: 'D', text: 'ESTADO LLEGADA' },
       { col: 'E', text: 'SALIDA' },
-      { col: 'F', text: 'TIPO DE REGISTRO / JUSTIFICACIÓN' }
+      { col: 'F', text: 'TIPO DE REGISTRO' }
     ]
 
     headers.forEach(h => {
@@ -260,7 +260,7 @@ export async function GET(request: Request) {
       cellA.value = a.nombre_trabajador
       cellA.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: zebraBg } }
       cellA.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF1E293B' } }
-      cellA.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 }
+      cellA.alignment = { horizontal: 'center', vertical: 'middle', indent: 1 }
       cellA.border = borderFino
 
       // 2. Celda Fecha (Columna B)
@@ -356,7 +356,7 @@ export async function GET(request: Request) {
         cellF.font = { name: 'Segoe UI', size: 9, color: { argb: 'FF64748B' } }
         cellF.border = borderFino
       }
-      cellF.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 }
+      cellF.alignment = { horizontal: 'center', vertical: 'middle', indent: 1 }
 
       currentRowIndex++
     })

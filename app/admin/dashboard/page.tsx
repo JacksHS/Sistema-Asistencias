@@ -233,25 +233,45 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden h-[830px] flex flex-col">
               <AutoRefreshTable intervalSeconds={6} />
               <div className="p-4 bg-gray-50 border-b border-gray-200 flex flex-col 2xl:flex-row 2xl:items-center justify-between gap-3.5 shrink-0">
-                <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
-                  <div className="bg-white p-2 rounded-lg border border-gray-200 shadow-2xs text-slate-700">
+                <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                  <div className="bg-white p-2 rounded-lg border border-gray-200 shadow-2xs text-slate-700 mt-0.5 shrink-0">
                     <Clock className="w-4 h-4" />
                   </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-bold text-gray-800 text-sm sm:text-base whitespace-nowrap">
-                      {trabajadorActivo ? `Asistencias: ${trabajadorActivo.nombre_completo}` : 'Últimas Asistencias'}
+                  <div className="flex flex-col gap-1 min-w-0 flex-1">
+                    <h3 
+                      className="font-bold text-gray-800 text-sm sm:text-base flex items-center gap-1.5 min-w-0"
+                      title={trabajadorActivo ? `Asistencias de: ${trabajadorActivo.nombre_completo}` : 'Últimas Asistencias'}
+                    >
+                      {trabajadorActivo ? (
+                        <>
+                          <span className="shrink-0">Asistencias:</span>
+                          <span className="truncate max-w-[170px] sm:max-w-[210px] md:max-w-[240px] xl:max-w-[260px] 2xl:max-w-[290px] text-slate-900 font-extrabold">
+                            {trabajadorActivo.nombre_completo}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="whitespace-nowrap">Últimas Asistencias</span>
+                      )}
                     </h3>
-                    {!desde && !hasta && (
-                      <span className="text-[10px] font-bold text-slate-600 bg-slate-200/80 px-2 py-0.5 rounded-full border border-slate-300/80 whitespace-nowrap">
-                        Últimos 30 días
-                      </span>
+                    {((!desde && !hasta) || workerId) && (
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {!desde && !hasta && (
+                          <span className="text-[10px] font-bold text-slate-600 bg-slate-200/80 px-2 py-0.5 rounded-full border border-slate-300/80 whitespace-nowrap">
+                            Últimos 30 días
+                          </span>
+                        )}
+                        {workerId && (
+                          <Link 
+                            href={`?desde=${desde||''}&hasta=${hasta||''}`} 
+                            className="text-xs flex items-center gap-1 bg-red-100 text-red-700 px-2 py-0.5 rounded-lg hover:bg-red-200 font-semibold transition-colors shrink-0"
+                            title="Quitar filtro de trabajador"
+                          >
+                            <FilterX className="w-3.5 h-3.5" /> Quitar
+                          </Link>
+                        )}
+                      </div>
                     )}
                   </div>
-                  {workerId && (
-                    <Link href={`?desde=${desde||''}&hasta=${hasta||''}`} className="text-xs flex items-center gap-1 bg-red-100 text-red-700 px-2.5 py-1 rounded-lg hover:bg-red-200 font-semibold transition-colors">
-                      <FilterX className="w-3.5 h-3.5" /> Quitar
-                    </Link>
-                  )}
                 </div>
 
                 <div className="w-full 2xl:w-auto flex-shrink-0">
@@ -263,10 +283,10 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
                 <table className="min-w-full w-full">
                   <thead className="bg-gray-50 sticky top-0 shadow-sm z-10 border-b border-gray-200">
                     <tr>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Trabajador</th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Entrada</th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Llegada</th>
-                      <th className="px-5 pr-7 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Salida</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[240px] sm:w-[270px]">Trabajador</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-[120px]">Entrada</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-[110px]">Llegada</th>
+                      <th className="px-5 pr-7 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-[130px]">Salida</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white">
@@ -315,13 +335,18 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
                                   ? 'bg-amber-50/60 hover:bg-amber-50' 
                                   : 'hover:bg-gray-50'
                               }`}>
-                                <td className="px-5 py-3 whitespace-nowrap text-sm text-gray-700 font-semibold">
-                                  <div className="flex items-center gap-2.5">
+                                <td className="px-5 py-3 text-sm text-gray-700 font-semibold max-w-[240px] sm:max-w-[270px]">
+                                  <div className="flex items-center gap-2 min-w-0">
                                     <AvatarCircle name={a.nombre_trabajador} size="sm" />
-                                    <span className="truncate">{a.nombre_trabajador}</span>
+                                    <span 
+                                      className="truncate min-w-0 flex-1 hover:text-slate-900 cursor-default" 
+                                      title={a.nombre_trabajador}
+                                    >
+                                      {a.nombre_trabajador}
+                                    </span>
                                     {tieneManual && (
                                       <span 
-                                        className="inline-flex items-center gap-1 text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 shrink-0 cursor-help" 
+                                        className="inline-flex items-center gap-0.5 text-[9.5px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 shrink-0 cursor-help whitespace-nowrap" 
                                         title={tooltipManual}
                                       >
                                         Manual ✍️
