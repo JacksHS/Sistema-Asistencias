@@ -300,6 +300,7 @@ function EditWorkerModal({ isOpen, worker, onClose, onSave, isPending }: {
 
 // FORMULARIO DE CREACIÓN
 export function CreateWorkerForm() {
+  const [isExpanded, setIsExpanded] = useState(false)
   const [state, formAction, isPending] = useActionState(crearTrabajador, null)
   const [showPassword, setShowPassword] = useState(false)
 
@@ -310,95 +311,145 @@ export function CreateWorkerForm() {
       toast.success(state.success)
       const form = document.getElementById('createWorkerForm') as HTMLFormElement;
       if (form) form.reset();
+      setIsExpanded(false)
     }
   }, [state])
 
   return (
-    <div className="bg-white/80 backdrop-blur-xl p-8 rounded-2xl shadow-xl border border-white/40 ring-1 ring-black/5">
-      <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
-        <div className="bg-blue-500/10 p-3 rounded-xl text-blue-600">
-          <UserPlus className="w-6 h-6" />
-        </div>
-        <h2 className="text-xl font-bold text-gray-800">Registrar Trabajador</h2>
-      </div>
-
-      <form id="createWorkerForm" action={formAction} className="space-y-5">
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1.5">Nombre Completo</label>
-          <input 
-            type="text" 
-            name="nombre_completo" 
-            required 
-            maxLength={50}
-            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all text-slate-800 font-medium"
-            placeholder="Ej. Juan Pérez Gómez"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1.5">Usuario (ID Corto)</label>
-          <input 
-            type="text" 
-            name="usuario" 
-            required 
-            pattern="[a-zA-Z0-9_]+"
-            maxLength={20}
-            title="Solo letras, números y guión bajo. Sin espacios ni símbolos."
-            onChange={(e) => {
-              e.target.value = e.target.value.replace(/[^a-zA-Z0-9_]/g, '')
-            }}
-            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all text-slate-800 font-medium"
-            placeholder="Ej. jperez (sin espacios)"
-          />
-        </div>
-
-        {/* Contraseña con ojito */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1.5">Contraseña</label>
-          <div className="relative">
-            <input 
-              type={showPassword ? 'text' : 'password'}
-              name="password" 
-              required 
-              minLength={6}
-              maxLength={50}
-              className="w-full px-4 py-3 pr-12 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all text-slate-800 font-medium"
-              placeholder="Mínimo 6 caracteres"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(p => !p)}
-              className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 hover:text-gray-600 transition-colors"
-              tabIndex={-1}
-            >
-              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-            </button>
+    <div className="bg-white/80 backdrop-blur-xl p-5 sm:p-6 rounded-2xl shadow-xl border border-white/40 ring-1 ring-black/5 transition-all duration-300">
+      {/* Encabezado colapsable */}
+      <div 
+        onClick={() => setIsExpanded(prev => !prev)}
+        className="flex items-center justify-between cursor-pointer select-none group"
+      >
+        <div className="flex items-center gap-3">
+          <div className="bg-blue-500/10 p-2.5 sm:p-3 rounded-xl text-blue-600 transition-colors group-hover:bg-blue-500/20 shrink-0">
+            <UserPlus className="w-5 h-5 sm:w-6 sm:h-6" />
+          </div>
+          <div>
+            <h2 className="text-lg sm:text-xl font-bold text-gray-800 group-hover:text-blue-600 transition-colors leading-tight">
+              Registrar Trabajador
+            </h2>
+            {!isExpanded && (
+              <p className="text-xs text-gray-400 font-medium hidden sm:block mt-0.5">
+                Dar de alta nuevo personal
+              </p>
+            )}
           </div>
         </div>
-
-        {/* Horario de Entrada Especial (Opcional) */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-            Horario de Entrada Especial <span className="font-normal text-gray-400 text-xs">— Opcional</span>
-          </label>
-          <input 
-            type="time" 
-            name="horario_especial" 
-            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all text-slate-800 font-medium hover:border-gray-300"
-          />
-          <p className="text-xs text-gray-400 mt-1 pl-1">
-            Dejar vacío para que use el horario general de la empresa.
-          </p>
+        <div className={`p-1.5 rounded-lg text-gray-400 group-hover:text-blue-600 group-hover:bg-blue-50 transition-all duration-300 ${isExpanded ? 'rotate-180 text-blue-600 bg-blue-50' : ''}`}>
+          <ChevronDown className="w-5 h-5" />
         </div>
+      </div>
 
+      {/* Botón visible cuando la sección está retraída */}
+      {!isExpanded && (
         <button 
-          type="submit" 
-          disabled={isPending}
-          className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-[0.98] disabled:opacity-70 flex justify-center mt-4"
+          type="button" 
+          onClick={() => setIsExpanded(true)}
+          className="w-full mt-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-blue-500/25 transition-all active:scale-[0.98] flex items-center justify-center gap-2 text-sm"
         >
-          {isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Crear Trabajador'}
+          <UserPlus className="w-4 h-4" />
+          <span>Añadir Trabajador</span>
         </button>
-      </form>
+      )}
+
+      {/* Contenedor desplegable con animación suave */}
+      <div 
+        className={`grid transition-all duration-300 ease-in-out overflow-hidden ${
+          isExpanded ? 'grid-rows-[1fr] opacity-100 mt-5' : 'grid-rows-[0fr] opacity-0 mt-0 pointer-events-none'
+        }`}
+      >
+        <div className="overflow-hidden space-y-4 pt-1">
+          <form id="createWorkerForm" action={formAction} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Nombre Completo</label>
+              <input 
+                type="text" 
+                name="nombre_completo" 
+                required 
+                maxLength={50}
+                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all text-slate-800 text-sm font-medium"
+                placeholder="Ej. Juan Pérez Gómez"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Usuario (ID Corto)</label>
+              <input 
+                type="text" 
+                name="usuario" 
+                required 
+                pattern="[a-zA-Z0-9_]+"
+                maxLength={20}
+                title="Solo letras, números y guión bajo. Sin espacios ni símbolos."
+                onChange={(e) => {
+                  e.target.value = e.target.value.replace(/[^a-zA-Z0-9_]/g, '')
+                }}
+                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all text-slate-800 text-sm font-medium"
+                placeholder="Ej. jperez (sin espacios)"
+              />
+            </div>
+
+            {/* Contraseña con ojito */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Contraseña</label>
+              <div className="relative">
+                <input 
+                  type={showPassword ? 'text' : 'password'}
+                  name="password" 
+                  required 
+                  minLength={6}
+                  maxLength={50}
+                  className="w-full px-3.5 py-2.5 pr-10 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all text-slate-800 text-sm font-medium"
+                  placeholder="Mínimo 6 caracteres"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(p => !p)}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400 hover:text-gray-600 transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Horario de Entrada Especial (Opcional) */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                Horario de Entrada Especial <span className="font-normal text-gray-400">— Opcional</span>
+              </label>
+              <input 
+                type="time" 
+                name="horario_especial" 
+                className="w-full px-3.5 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all text-slate-800 text-sm font-medium hover:border-gray-300"
+              />
+              <p className="text-[11px] text-gray-400 mt-1 pl-1">
+                Dejar vacío para que use el horario general de la empresa.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button 
+                type="button"
+                onClick={() => setIsExpanded(false)}
+                disabled={isPending}
+                className="px-3.5 py-2.5 text-xs font-semibold text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button 
+                type="submit" 
+                disabled={isPending}
+                className="flex-1 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold py-2.5 px-4 rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-[0.98] disabled:opacity-70 flex items-center justify-center gap-2 text-sm"
+              >
+                {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Registrar Trabajador'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   )
 }
