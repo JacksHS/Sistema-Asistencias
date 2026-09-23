@@ -33,7 +33,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'24468f54fcb3ebdfea2f2f4df79f426ca421ca3c97dfd91ef8cb6bb964acc077'>;
+  StorageHashBase<'1525e6341363d71483662da0eb485ee70a1386904bfb826ce30643eb460422c5'>;
 export type ExecutionHash =
   ExecutionHashBase<'e9fe2b7a2630cffc74a5ad99bf245081d9cae2cd5004028ca08cfc8692cdbdb4'>;
 export type ProfileHash =
@@ -261,6 +261,7 @@ export type FieldOutputTypes = {
       readonly password: CodecTypes['pg/text@1']['output'];
       readonly device_hash: CodecTypes['pg/text@1']['output'] | null;
       readonly device_uuid: CodecTypes['pg/text@1']['output'] | null;
+      readonly activo: CodecTypes['pg/bool@1']['output'];
       readonly creado_en: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly actualizado: CodecTypes['pg/timestamptz-string@1']['output'];
     };
@@ -288,6 +289,7 @@ export type FieldInputTypes = {
       readonly password: CodecTypes['pg/text@1']['input'];
       readonly device_hash: CodecTypes['pg/text@1']['input'] | null;
       readonly device_uuid: CodecTypes['pg/text@1']['input'] | null;
+      readonly activo: CodecTypes['pg/bool@1']['input'];
       readonly creado_en: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly actualizado: CodecTypes['pg/timestamptz-string@1']['input'];
     };
@@ -308,6 +310,7 @@ export type StorageColumnTypes = {
       readonly requerir_misma_red: CodecTypes['pg/bool@1']['output'];
     };
     readonly usuario: {
+      readonly activo: CodecTypes['pg/bool@1']['output'];
       readonly actualizado: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly creado_en: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly device_hash: CodecTypes['pg/text@1']['output'] | null;
@@ -335,6 +338,7 @@ export type StorageColumnInputTypes = {
       readonly requerir_misma_red: CodecTypes['pg/bool@1']['input'];
     };
     readonly usuario: {
+      readonly activo: CodecTypes['pg/bool@1']['input'];
       readonly actualizado: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly creado_en: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly device_hash: CodecTypes['pg/text@1']['input'] | null;
@@ -517,6 +521,15 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/text@1';
                   readonly nullable: true;
                 };
+                readonly activo: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', true>;
+                  };
+                };
                 readonly creado_en: {
                   readonly nativeType: 'timestamptz';
                   readonly codecId: 'pg/timestamptz-string@1';
@@ -668,6 +681,10 @@ type ContractBase = Omit<
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
+              readonly activo: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
               readonly creado_en: {
                 readonly nullable: false;
                 readonly type: {
@@ -707,6 +724,7 @@ type ContractBase = Omit<
                 readonly password: { readonly column: 'password' };
                 readonly device_hash: { readonly column: 'device_hash' };
                 readonly device_uuid: { readonly column: 'device_uuid' };
+                readonly activo: { readonly column: 'activo' };
                 readonly creado_en: { readonly column: 'creado_en' };
                 readonly actualizado: { readonly column: 'actualizado' };
               };

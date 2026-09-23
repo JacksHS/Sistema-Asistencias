@@ -8,6 +8,7 @@ model Usuario {
   password        String       
   device_hash     String?      
   device_uuid     String?      
+  activo          Boolean      @default(true)
   
   asistencias Asistencia[] 
   

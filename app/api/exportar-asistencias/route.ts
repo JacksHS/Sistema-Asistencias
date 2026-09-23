@@ -17,11 +17,32 @@ export async function GET(request: Request) {
   const desde = searchParams.get('desde')
   const hasta = searchParams.get('hasta')
 
+  // 2.1 Candado de Seguridad Defensivo: Rango máximo de 90 días (92 días de gracia)
+  const now = new Date()
+  const fechaInicio = desde ? new Date(`${desde}T00:00:00`) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+  const fechaFin = hasta ? new Date(`${hasta}T23:59:59.999`) : now
+
+  if (isNaN(fechaInicio.getTime()) || isNaN(fechaFin.getTime())) {
+    return NextResponse.json(
+      { error: "Formato de fechas no válido." },
+      { status: 400 }
+    )
+  }
+
+  const diffTime = Math.abs(fechaFin.getTime() - fechaInicio.getTime())
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  if (diffDays > 92) {
+    return NextResponse.json(
+      { error: "Rango de fechas no permitido. El límite máximo es de 90 días." },
+      { status: 400 }
+    )
+  }
+
   // 3. Obtener configuración
   const config = await getConfig()
 
   try {
-    // 4. Obtener trabajadores
+    // 4. Obtener trabajadores (todos para mapping histórico SUNAFIL)
     const trabajadores = await db.orm.public.Usuario.where({ rol: 'USER' }).all()
     const trabajadorFiltrado = workerId ? trabajadores.find(t => t.id === workerId) : null
 
@@ -36,18 +57,17 @@ export async function GET(request: Request) {
       
     asistenciasRaw = await query.all()
 
-    // Filtro de fecha en memoria: por defecto últimos 30 días si no se especifican fechas
-    let fechaInicioFiltro: Date | null = null
-    if (desde) {
-      fechaInicioFiltro = new Date(`${desde}T00:00:00`)
-    } else if (!hasta) {
-      const hace30Dias = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-      hace30Dias.setHours(0, 0, 0, 0)
-      fechaInicioFiltro = hace30Dias
-    }
+    // Filtro de fecha en memoria con fechas validadas
+    asistenciasRaw = asistenciasRaw.filter(a => {
+      const f = new Date(a.fecha_hora)
+      return f >= fechaInicio && f <= fechaFin
+    })
 
-    if (fechaInicioFiltro) asistenciasRaw = asistenciasRaw.filter(a => new Date(a.fecha_hora) >= fechaInicioFiltro!)
-    if (hasta) asistenciasRaw = asistenciasRaw.filter(a => new Date(a.fecha_hora) <= new Date(`${hasta}T23:59:59.999`))
+    // Si es exportación general (!workerId), solo incluir asistencias de trabajadores activos para no ensuciar registros
+    if (!workerId) {
+      const activeIds = new Set(trabajadores.filter(t => t.activo !== false).map(t => t.id))
+      asistenciasRaw = asistenciasRaw.filter(a => activeIds.has(a.usuario_id))
+    }
     
     // Límite de seguridad para exportación pesada
     if (asistenciasRaw.length > 5000) asistenciasRaw = asistenciasRaw.slice(-5000)
@@ -72,10 +92,13 @@ export async function GET(request: Request) {
       
       if (!consolidados[key]) {
         const esTarde = calcularEsTarde(a.fecha, a.usuario_id, config, timeZone)
+        const nombreDisplay = u 
+          ? `${u.nombre_completo}${u.activo === false ? ' (Inactivo)' : ''}` 
+          : 'Usuario Eliminado'
 
         consolidados[key] = {
           usuario_id: a.usuario_id,
-          nombre_trabajador: u ? u.nombre_completo : 'Usuario Eliminado',
+          nombre_trabajador: nombreDisplay,
           fechaFiltro: a.fecha,
           entrada: a.fecha,
           esTarde,

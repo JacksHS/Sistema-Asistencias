@@ -47,6 +47,11 @@ export async function login(prevState: any, formData: FormData) {
     return { error: 'Credenciales inválidas' }
   }
 
+  // 1.1 Validar cuenta activa
+  if (usuario.activo === false) {
+    return { error: 'Esta cuenta se encuentra inactiva. Comuníquese con la administración.' }
+  }
+
   // 2. Verificar contraseña
   const isValid = await bcrypt.compare(password, usuario.password)
   if (!isValid) {

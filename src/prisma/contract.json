@@ -141,6 +141,13 @@
           },
           "Usuario": {
             "fields": {
+              "activo": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
               "actualizado": {
                 "nullable": false,
                 "type": {
@@ -224,6 +231,9 @@
             },
             "storage": {
               "fields": {
+                "activo": {
+                  "column": "activo"
+                },
                 "actualizado": {
                   "column": "actualizado"
                 },
@@ -390,6 +400,15 @@
             },
             "usuario": {
               "columns": {
+                "activo": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": true
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
                 "actualizado": {
                   "codecId": "pg/timestamptz-string@1",
                   "nativeType": "timestamptz",
@@ -473,7 +492,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "24468f54fcb3ebdfea2f2f4df79f426ca421ca3c97dfd91ef8cb6bb964acc077"
+    "storageHash": "1525e6341363d71483662da0eb485ee70a1386904bfb826ce30643eb460422c5"
   },
   "execution": {
     "executionHash": "e9fe2b7a2630cffc74a5ad99bf245081d9cae2cd5004028ca08cfc8692cdbdb4",

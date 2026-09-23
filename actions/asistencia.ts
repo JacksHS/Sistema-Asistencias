@@ -79,6 +79,9 @@ export async function registrarAsistencia(tokenEscaneado: string) {
     if (!usuarioDB) {
       return { error: 'Tu sesión no pertenece a un usuario válido en esta base de datos. Cierra sesión arriba a la derecha y vuelve a ingresar con tu usuario y contraseña.' }
     }
+    if (usuarioDB.activo === false) {
+      return { error: 'Esta cuenta se encuentra inactiva. No se pueden registrar marcas de asistencia.' }
+    }
 
     // 5. REGLA DE ENTRADA Y SALIDA
     // Para evitar bugs de Zona Horaria (UTC en Vercel vs Local), forzamos la zona horaria a la región del usuario.
@@ -154,6 +157,7 @@ export async function obtenerResumenEmpleado() {
   try {
     const usuario = await db.orm.public.Usuario.where({ id: usuarioId }).first()
     if (!usuario) return { error: 'Usuario no encontrado' }
+    if (usuario.activo === false) return { error: 'Esta cuenta se encuentra inactiva' }
 
     // Zona horaria de la aplicación
     const tzEnv = process.env.APP_TIMEZONE || process.env.TZ

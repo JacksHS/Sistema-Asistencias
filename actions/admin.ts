@@ -141,10 +141,12 @@ export async function eliminarTrabajador(id: string, adminPassword?: string) {
       return { error: 'Contraseña de administrador incorrecta' }
     }
 
-    // Primero eliminar las asistencias
-    await db.orm.public.Asistencia.where({ usuario_id: id }).delete()
-    // Luego eliminar al usuario
-    await db.orm.public.Usuario.where({ id }).delete()
+    // Borrado lógico (Soft Delete): conservar historial para SUNAFIL y desvincular llaves de dispositivo
+    await db.orm.public.Usuario.where({ id }).update({
+      activo: false,
+      device_hash: null,
+      device_uuid: null
+    })
     
     // Limpiar horario especial si existía
     const { getConfig, setConfig } = await import('@/lib/configManager')
@@ -156,12 +158,30 @@ export async function eliminarTrabajador(id: string, adminPassword?: string) {
     }
 
     revalidatePath('/admin/dashboard')
-    return { success: 'Trabajador eliminado' }
+    return { success: 'Trabajador dado de baja (historial conservado)' }
   } catch (error) {
-    console.error('Error al eliminar:', error)
-    return { error: 'No se pudo eliminar al trabajador' }
+    console.error('Error al dar de baja:', error)
+    return { error: 'No se pudo dar de baja al trabajador' }
   }
 }
+
+export async function activarTrabajador(id: string) {
+  const { getSession } = await import('@/lib/session')
+  const session = await getSession()
+  if (!session || session.rol !== 'ADMIN') return { error: 'No autorizado' }
+
+  try {
+    await db.orm.public.Usuario.where({ id }).update({
+      activo: true
+    })
+    revalidatePath('/admin/dashboard')
+    return { success: 'Trabajador reactivado con éxito' }
+  } catch (error) {
+    console.error('Error al reactivar trabajador:', error)
+    return { error: 'No se pudo reactivar al trabajador' }
+  }
+}
+
 
 export async function editarTrabajador(id: string, nombre_completo: string, horarioEspecial?: string) {
   const { getSession } = await import('@/lib/session')
@@ -241,6 +261,7 @@ export async function crearAsistenciaManual(prevState: any, formData: FormData) 
 
     const usuario = await db.orm.public.Usuario.where({ id: usuarioId }).first()
     if (!usuario) return { error: 'Trabajador no encontrado' }
+    if (usuario.activo === false) return { error: 'No se puede registrar asistencia manual a un trabajador inactivo' }
 
     // Fecha en hora local de Perú (UTC-5)
     const fechaHoraIso = new Date(`${fecha}T${hora}:00-05:00`).toISOString()

@@ -49,9 +49,21 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
     // Para asegurar, simplemente evitamos traer 10,000 filtrando por defecto si es muy grande.
     asistenciasRaw = await query.all()
     
-    // Si no hay filtro manual de 'desde' ni 'hasta', por defecto se toman los últimos 30 días
+    // Determinar fechas efectivas con límite de seguridad de 92 días
     let fechaInicioFiltro: Date | null = null
-    if (desde) {
+    let rangoExcedido = false
+
+    if (desde && hasta) {
+      const dIni = new Date(`${desde}T00:00:00`)
+      const dFin = new Date(`${hasta}T23:59:59.999`)
+      const diffDays = Math.ceil(Math.abs(dFin.getTime() - dIni.getTime()) / (1000 * 60 * 60 * 24))
+      if (diffDays > 92) {
+        rangoExcedido = true
+        fechaInicioFiltro = new Date(dFin.getTime() - 92 * 24 * 60 * 60 * 1000)
+      } else {
+        fechaInicioFiltro = dIni
+      }
+    } else if (desde) {
       fechaInicioFiltro = new Date(`${desde}T00:00:00`)
     } else if (!hasta) {
       const hace30Dias = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
@@ -62,6 +74,12 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
     if (fechaInicioFiltro) asistenciasRaw = asistenciasRaw.filter(a => new Date(a.fecha_hora) >= fechaInicioFiltro!)
     if (hasta) asistenciasRaw = asistenciasRaw.filter(a => new Date(a.fecha_hora) <= new Date(`${hasta}T23:59:59.999`))
     
+    // Si no hay workerId seleccionado (vista general), solo mostrar asistencias de trabajadores activos para no ensuciar registros
+    if (!workerId) {
+      const activeWorkerIds = new Set(trabajadores.filter(t => t.activo !== false).map(t => t.id))
+      asistenciasRaw = asistenciasRaw.filter(a => activeWorkerIds.has(a.usuario_id))
+    }
+
     // Límite de seguridad
     if (asistenciasRaw.length > 5000) asistenciasRaw = asistenciasRaw.slice(-5000)
   } catch (error) {
@@ -92,11 +110,14 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
       const esTarde = calcularEsTarde(a.fecha, a.usuario_id, config, timeZone)
       const fechaClave = new Intl.DateTimeFormat('en-CA', { timeZone }).format(a.fecha)
       const esHoy = fechaClave === hoyClave
+      const nombreDisplay = u 
+        ? `${u.nombre_completo}${u.activo === false ? ' (Inactivo)' : ''}` 
+        : 'Usuario Eliminado'
 
       consolidados[key] = {
         id: a.id,
         usuario_id: a.usuario_id,
-        nombre_trabajador: u ? u.nombre_completo : 'Usuario Eliminado',
+        nombre_trabajador: nombreDisplay,
         fechaDivisor: a.fechaDivisor,
         fechaFiltro: a.fecha,
         entrada: a.fecha,
@@ -124,6 +145,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
   })
 
   const trabajadorActivo = workerId ? trabajadores.find(t => t.id === workerId) : null
+  const trabajadoresActivos = trabajadores.filter(t => t.activo !== false)
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -174,14 +196,14 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
               {/* En desktop: Reloj y botón de Registro Manual van junto al logo */}
               <div className="hidden sm:flex items-center gap-3 ml-2">
                 <AdminLiveClock />
-                <ManualAttendanceButton trabajadores={trabajadores} />
+                <ManualAttendanceButton trabajadores={trabajadoresActivos} />
               </div>
             </div>
 
             {/* Fila 2 en móvil: Reloj y Registro Manual equilibrados y separados */}
             <div className="flex sm:hidden items-center justify-between gap-2 pt-2 border-t border-slate-800/80 w-full">
               <AdminLiveClock />
-              <ManualAttendanceButton trabajadores={trabajadores} />
+              <ManualAttendanceButton trabajadores={trabajadoresActivos} />
             </div>
 
             {/* En desktop: Botones Kiosco y Salir a la derecha */}
@@ -248,6 +270,11 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
                           <span className="truncate max-w-[170px] sm:max-w-[210px] md:max-w-[240px] xl:max-w-[260px] 2xl:max-w-[290px] text-slate-900 font-extrabold">
                             {trabajadorActivo.nombre_completo}
                           </span>
+                          {trabajadorActivo.activo === false && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200 shrink-0">
+                              Inactivo
+                            </span>
+                          )}
                         </>
                       ) : (
                         <span className="whitespace-nowrap">Últimas Asistencias</span>
