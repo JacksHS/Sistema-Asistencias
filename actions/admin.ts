@@ -123,12 +123,24 @@ export async function guardarConfiguracion(rawConfig: unknown) {
   }
 }
 
-export async function eliminarTrabajador(id: string) {
+export async function eliminarTrabajador(id: string, adminPassword?: string) {
   const { getSession } = await import('@/lib/session')
   const session = await getSession()
-  if (!session || session.rol !== 'ADMIN') return { error: 'No autorizado' }
+  if (!session || session.rol !== 'ADMIN' || !session.userId) return { error: 'No autorizado' }
+
+  if (!adminPassword || !adminPassword.trim()) {
+    return { error: 'Debes ingresar tu contraseña de administrador para confirmar la eliminación' }
+  }
 
   try {
+    const adminUser = await db.orm.public.Usuario.where({ id: session.userId as string }).first()
+    if (!adminUser) return { error: 'Usuario administrador no encontrado' }
+
+    const isPasswordValid = await bcrypt.compare(adminPassword.trim(), adminUser.password)
+    if (!isPasswordValid) {
+      return { error: 'Contraseña de administrador incorrecta' }
+    }
+
     // Primero eliminar las asistencias
     await db.orm.public.Asistencia.where({ usuario_id: id }).delete()
     // Luego eliminar al usuario
@@ -187,16 +199,20 @@ export async function editarTrabajador(id: string, nombre_completo: string, hora
 export async function crearAsistenciaManual(prevState: any, formData: FormData) {
   const { getSession } = await import('@/lib/session')
   const session = await getSession()
-  if (!session || session.rol !== 'ADMIN') return { error: 'No autorizado' }
+  if (!session || session.rol !== 'ADMIN' || !session.userId) return { error: 'No autorizado' }
 
   const usuarioId = formData.get('usuarioId') as string
   const fecha = formData.get('fecha') as string // YYYY-MM-DD
   const hora = formData.get('hora') as string // HH:mm
   const motivoClave = (formData.get('motivo') as string || 'otro').trim()
-  const detalle = (formData.get('detalle') as string || '').trim().replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ .,-]/g, '').slice(0, 60)
+  const adminPassword = (formData.get('adminPassword') as string || '').trim()
 
   if (!usuarioId || !fecha || !hora) {
     return { error: 'Trabajador, fecha y hora son requeridos' }
+  }
+
+  if (!adminPassword) {
+    return { error: 'Debes ingresar tu contraseña de administrador para autorizar el registro' }
   }
 
   // 1. Validar que la fecha y hora no sean en el futuro
@@ -215,13 +231,20 @@ export async function crearAsistenciaManual(prevState: any, formData: FormData) 
   }
 
   try {
+    const adminUser = await db.orm.public.Usuario.where({ id: session.userId as string }).first()
+    if (!adminUser) return { error: 'Usuario administrador no encontrado' }
+
+    const isPasswordValid = await bcrypt.compare(adminPassword, adminUser.password)
+    if (!isPasswordValid) {
+      return { error: 'Contraseña de administrador incorrecta' }
+    }
+
     const usuario = await db.orm.public.Usuario.where({ id: usuarioId }).first()
     if (!usuario) return { error: 'Trabajador no encontrado' }
 
     // Fecha en hora local de Perú (UTC-5)
     const fechaHoraIso = new Date(`${fecha}T${hora}:00-05:00`).toISOString()
-    const detalleHex = detalle ? Buffer.from(detalle, 'utf-8').toString('hex') : 'none'
-    const manualId = `manual_${Date.now()}_${motivoClave}_${detalleHex}_${Math.random().toString(36).substring(2, 6)}`
+    const manualId = `manual_${Date.now()}_${motivoClave}_none_${Math.random().toString(36).substring(2, 6)}`
 
     await db.orm.public.Asistencia.create({
       id: manualId,

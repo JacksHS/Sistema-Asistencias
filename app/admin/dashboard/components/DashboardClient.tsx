@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { crearTrabajador, resetearDispositivo, eliminarTrabajador, editarTrabajador, guardarConfiguracion, crearAsistenciaManual } from '@/actions/admin'
-import { Loader2, RefreshCcw, Smartphone, UserPlus, Pencil, Trash2, Settings, AlertTriangle, ChevronUp, ChevronDown, Clock, Eye, EyeOff, Search, PenSquare, Users } from 'lucide-react'
+import { Loader2, RefreshCcw, Smartphone, UserPlus, Pencil, Trash2, Settings, AlertTriangle, ChevronUp, ChevronDown, Clock, Eye, EyeOff, Search, PenSquare, Users, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 
 // PORTAL CLIENTE PARA MODALES (Evita superposición de headers sticky o barras de navegación)
@@ -47,6 +47,107 @@ function ConfirmModal({ isOpen, title, message, onConfirm, onCancel, confirmText
               {confirmText}
             </button>
           </div>
+        </div>
+      </div>
+    </ClientPortal>
+  )
+}
+
+// MODAL DE CONFIRMACIÓN CON CONTRASEÑA PARA ELIMINAR TRABAJADOR
+function DeleteWorkerModal({
+  isOpen,
+  workerName,
+  onClose,
+  onConfirm,
+  isPending
+}: {
+  isOpen: boolean
+  workerName: string
+  onClose: () => void
+  onConfirm: (password: string) => void
+  isPending: boolean
+}) {
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+
+  useEffect(() => {
+    if (isOpen) {
+      setPassword('')
+      setShowPassword(false)
+    }
+  }, [isOpen])
+
+  if (!isOpen) return null
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!password.trim()) {
+      toast.error('Ingresa tu contraseña de administrador para continuar')
+      return
+    }
+    onConfirm(password.trim())
+  }
+
+  return (
+    <ClientPortal>
+      <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-12 h-12 rounded-full flex items-center justify-center mb-4 bg-red-100 text-red-600">
+            <Trash2 className="w-6 h-6" />
+          </div>
+          <h3 className="font-bold text-xl text-gray-900 mb-1.5">Eliminar Trabajador</h3>
+          <p className="text-gray-600 text-xs mb-4 leading-relaxed">
+            ¿Estás seguro de eliminar a <strong className="text-slate-900">{workerName}</strong>? Esta acción borrará permanentemente todo su historial de asistencias y no se puede deshacer.
+          </p>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Campo de Contraseña de Administrador Destacado */}
+            <div className="bg-red-50 border-2 border-red-200 rounded-xl p-3 shadow-xs space-y-1.5">
+              <label className="flex items-center gap-1.5 text-xs font-bold text-red-900">
+                <Lock className="w-3.5 h-3.5 text-red-600" />
+                <span>Autorizar con Contraseña Admin</span>
+              </label>
+              
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  placeholder="Tu contraseña de administrador"
+                  className="w-full px-3 py-2 pr-9 text-xs bg-white border border-red-300 rounded-lg outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 text-slate-800 font-medium"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-red-400 hover:text-red-700"
+                  tabIndex={-1}
+                  title={showPassword ? "Ocultar contraseña" : "Ver contraseña"}
+                >
+                  {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isPending}
+                className="px-4 py-2 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={isPending || !password.trim()}
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors disabled:opacity-50 shadow-md shadow-red-600/20"
+              >
+                {isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                Sí, eliminar
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </ClientPortal>
@@ -334,9 +435,9 @@ export function WorkerActions({
     })
   }
 
-  const handleDelete = () => {
+  const handleDelete = (adminPassword: string) => {
     startTransition(async () => {
-      const res = await eliminarTrabajador(id)
+      const res = await eliminarTrabajador(id, adminPassword)
       if (res.error) toast.error(res.error)
       if (res.success) {
         toast.success(res.success)
@@ -402,15 +503,12 @@ export function WorkerActions({
         isPending={isPending}
       />
 
-      <ConfirmModal 
+      <DeleteWorkerModal 
         isOpen={modalState.type === 'delete'}
-        title="Eliminar Trabajador"
-        message={`¿Estás seguro de eliminar definitivamente a ${currentName}? Esta acción borrará también su historial de asistencias y no se puede deshacer.`}
-        confirmText="Sí, eliminar"
-        isDanger={true}
-        isPending={isPending}
+        workerName={currentName}
         onConfirm={handleDelete}
-        onCancel={() => setModalState({type: null})}
+        onClose={() => setModalState({type: null})}
+        isPending={isPending}
       />
 
       <ConfirmModal 
@@ -1054,11 +1152,15 @@ export function ManualAttendanceButton({ trabajadores }: { trabajadores: { id: s
 
   const [fecha, setFecha] = useState('')
   const [hora, setHora] = useState('')
+  const [showAdminPassword, setShowAdminPassword] = useState(false)
+  const [adminPassword, setAdminPassword] = useState('')
 
   useEffect(() => {
     if (isOpen) {
       setFecha(getPeruCurrentDate())
       setHora(getPeruCurrentTime())
+      setAdminPassword('')
+      setShowAdminPassword(false)
     }
   }, [isOpen])
 
@@ -1067,6 +1169,7 @@ export function ManualAttendanceButton({ trabajadores }: { trabajadores: { id: s
       toast.error(state.error)
     } else if (state?.success) {
       toast.success(state.success)
+      setAdminPassword('')
       setIsOpen(false)
     }
   }, [state])
@@ -1160,18 +1263,42 @@ export function ManualAttendanceButton({ trabajadores }: { trabajadores: { id: s
                   </select>
                 </div>
 
-                {/* Detalle u Observación adicional */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Detalle u Observación <span className="font-normal text-gray-400">— Opcional</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="detalle"
-                    maxLength={60}
-                    placeholder="Ej. Notificó previamente a gerencia, celular sin carga..."
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none text-xs text-slate-800 font-medium placeholder:text-gray-400"
-                  />
+                {/* Validación con Contraseña del Administrador (Destacado llamativo) */}
+                <div className="bg-gradient-to-r from-amber-500/15 via-amber-100/60 to-orange-500/15 border-2 border-amber-500/80 rounded-2xl p-3.5 shadow-sm space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-1.5 text-xs font-black text-amber-950 tracking-wide uppercase">
+                      <Lock className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Autorización de Administrador</span>
+                    </label>
+                    <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-500 text-white shadow-xs">
+                      Requerido
+                    </span>
+                  </div>
+                  
+                  <div className="relative">
+                    <input
+                      type={showAdminPassword ? 'text' : 'password'}
+                      name="adminPassword"
+                      required
+                      value={adminPassword}
+                      onChange={e => setAdminPassword(e.target.value)}
+                      placeholder="Ingresa tu contraseña para autorizar"
+                      className="w-full px-3.5 py-2.5 pr-10 text-xs font-semibold bg-white border border-amber-300 rounded-xl outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-slate-800 placeholder:text-gray-400 placeholder:font-normal shadow-inner"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowAdminPassword(!showAdminPassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-amber-600 hover:text-amber-800 transition-colors p-1"
+                      tabIndex={-1}
+                      title={showAdminPassword ? "Ocultar contraseña" : "Ver contraseña"}
+                    >
+                      {showAdminPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+
+                  <p className="text-[11px] text-amber-900/90 font-medium leading-tight pl-0.5">
+                    🛡️ Ingresa tu contraseña de acceso para autorizar este registro manual y evitar registros no autorizados.
+                  </p>
                 </div>
 
                 {/* Botones de acción */}
