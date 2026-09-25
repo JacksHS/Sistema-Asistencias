@@ -30,26 +30,59 @@ export default function EscanearPage() {
 
   // Ref para evitar múltiples escaneos por milisegundo (Closure problem)
   const isProcessingRef = useRef(false)
+  const audioCtxRef = useRef<AudioContext | null>(null)
+  const scanAudioRef = useRef<HTMLAudioElement | null>(null)
 
-  // Sonido de éxito sintético y suave con Web Audio API (Cero archivos MP3 externos)
+  // Sonido de reconocimiento QR (Persiste en EscanearPage para que NO se corte cuando <Scanner /> se desmonta al pasar a 'processing')
+  const playQrBeep = () => {
+    // 1. Reproducir el beep nativo del lector QR desde el ref persistente del padre
+    try {
+      if (scanAudioRef.current) {
+        scanAudioRef.current.currentTime = 0
+        scanAudioRef.current.volume = 1.0
+        const playPromise = scanAudioRef.current.play()
+        if (playPromise !== undefined) {
+          playPromise.catch(() => {
+            // Si el navegador bloquea el elemento HTMLAudio, el sintetizador WebAudio actúa de respaldo inmediato
+            playSuccessBeep()
+          })
+        }
+      } else {
+        playSuccessBeep()
+      }
+    } catch (e) {
+      playSuccessBeep()
+    }
+  }
+
+  // Sonido sintético de confirmación con Web Audio API (Respaldo + Confirmación de Entrada/Salida)
   const playSuccessBeep = () => {
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
       if (!AudioCtx) return
-      const ctx = new AudioCtx()
+      if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+        audioCtxRef.current = (window as any).__qrAudioCtx && (window as any).__qrAudioCtx.state !== 'closed'
+          ? (window as any).__qrAudioCtx
+          : new AudioCtx()
+        ;(window as any).__qrAudioCtx = audioCtxRef.current
+      }
+      const ctx = audioCtxRef.current!
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {})
+      }
       const now = ctx.currentTime
 
       const osc = ctx.createOscillator()
       const gain = ctx.createGain()
 
-      // Tono suave doble-ascendente tipo escáner de alta tecnología (D5 a A5)
+      // Tono nítido tipo escáner QR (D5 a A5)
       osc.type = 'sine'
       osc.frequency.setValueAtTime(587.33, now) // D5
-      osc.frequency.exponentialRampToValueAtTime(880, now + 0.08) // A5
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.09) // A5
 
       gain.gain.setValueAtTime(0.01, now)
-      gain.gain.linearRampToValueAtTime(0.18, now + 0.03)
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22)
+      gain.gain.linearRampToValueAtTime(0.35, now + 0.025)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.24)
 
       osc.connect(gain)
       gain.connect(ctx.destination)
@@ -78,6 +111,35 @@ export default function EscanearPage() {
 
   useEffect(() => {
     cargarResumen()
+
+    // Inicializar y pre-desbloquear el audio para móviles en el primer toque
+    if (typeof window !== 'undefined') {
+      try {
+        // Extraemos el mismo recurso de audio del escáner pero en un ref que NO se destruye al desmontar la cámara
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
+        if (AudioCtx && !audioCtxRef.current) {
+          audioCtxRef.current = new AudioCtx()
+        }
+      } catch (e) {}
+
+      const unlockAudio = () => {
+        try {
+          if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+            audioCtxRef.current.resume().catch(() => {})
+          }
+        } catch (e) {}
+      }
+
+      window.addEventListener('pointerdown', unlockAudio, { passive: true })
+      window.addEventListener('touchstart', unlockAudio, { passive: true })
+      window.addEventListener('click', unlockAudio, { passive: true })
+
+      return () => {
+        window.removeEventListener('pointerdown', unlockAudio)
+        window.removeEventListener('touchstart', unlockAudio)
+        window.removeEventListener('click', unlockAudio)
+      }
+    }
   }, [])
 
   const handleScan = async (detectedCodes: any[]) => {
@@ -86,10 +148,13 @@ export default function EscanearPage() {
     isProcessingRef.current = true
     const qrData = detectedCodes[0].rawValue
 
-    setEscaneando(false)
+    // Mostrar inmediatamente la pantalla "Verificando..." encima de la cámara,
+    // pero SIN desmontar <Scanner /> todavía (setEscaneando(false) se ejecuta al terminar los 800ms).
+    // Esto evita que el cleanup de <Scanner /> ejecute audioRef.current.pause() en <1ms y corte el sonidito nativo del QR.
     setEstado('processing')
-    
-    // Haptic feedback
+    playSuccessBeep()
+
+    // Haptic feedback inmediato al detectar el QR
     try { if (typeof window !== 'undefined' && typeof navigator.vibrate === 'function') navigator.vibrate([100]) } catch(e) {}
 
     try {
@@ -98,12 +163,15 @@ export default function EscanearPage() {
         new Promise(resolve => setTimeout(resolve, 800))
       ])
       
+      // Ahora que el sonido del escáner ya terminó de reproducirse por completo, apagamos la cámara
+      setEscaneando(false)
+
       if (res.error) {
         try { if (typeof window !== 'undefined' && typeof navigator.vibrate === 'function') navigator.vibrate([300, 100, 300]) } catch(e) {}
         setEstado('error')
         setMensaje(res.error)
       } else {
-        // Reproducir sonido sintético de éxito
+        // Reproducir confirmación sonora también al registrar Entrada o Salida exitosamente
         playSuccessBeep()
 
         try { if (typeof window !== 'undefined' && typeof navigator.vibrate === 'function') navigator.vibrate([200, 100, 200]) } catch(e) {}
@@ -123,16 +191,21 @@ export default function EscanearPage() {
         cargarResumen()
       }
     } catch (e) {
+      setEscaneando(false)
       setEstado('error')
       setMensaje('Error de red al registrar asistencia')
+    } finally {
+      // Liberar siempre el candado cuando termina el procesamiento (la cámara ya está apagada con escaneando=false)
+      // Así cuando el trabajador vuelva a abrir el escáner para marcar su salida o verificar su estado, siempre procesará el QR
+      isProcessingRef.current = false
     }
   }
 
   const reintentar = () => {
+    isProcessingRef.current = false
     setEstado('idle')
     setMensaje('')
     setTipoMarca(null)
-    isProcessingRef.current = false
     setEscaneando(true)
   }
 
@@ -230,6 +303,7 @@ export default function EscanearPage() {
         {/* VISTA 1: ESCÁNER QR */}
         {tab === 'escanear' && (
           <>
+            {estado === 'processing' && processingScreen}
             {escaneando ? (
               <div className="absolute inset-0 md:relative md:w-full md:max-w-md md:max-h-[75vh] md:rounded-2xl md:overflow-hidden md:shadow-2xl md:ring-1 md:ring-white/10 flex flex-col z-10">
                 <div className="relative flex-1 bg-black">
@@ -276,8 +350,6 @@ export default function EscanearPage() {
                   </div>
                 </div>
               </div>
-            ) : estado === 'processing' ? (
-              processingScreen
             ) : (
               /* Modal de Resultado */
               <div className="absolute inset-0 flex items-center justify-center p-6 bg-slate-900/90 backdrop-blur-sm z-20">
@@ -322,11 +394,15 @@ export default function EscanearPage() {
                     <h2 className={`text-2xl font-bold mb-1.5 ${
                       estado === 'success'
                         ? tipoMarca === 'ENTRADA' ? 'text-emerald-300' : 'text-blue-300'
-                        : 'text-red-300'
+                        : (mensaje.includes('Ya registraste') || mensaje.includes('Ya completaste'))
+                          ? 'text-amber-300'
+                          : 'text-red-300'
                     }`}>
                       {estado === 'success' 
                         ? (tipoMarca === 'ENTRADA' ? '¡Entrada Registrada!' : '¡Salida Registrada!') 
-                        : 'Escaneo Fallido'}
+                        : (mensaje.includes('Ya registraste') || mensaje.includes('Ya completaste'))
+                          ? 'Marca ya Registrada'
+                          : 'Escaneo Fallido'}
                     </h2>
                     
                     <p className="text-slate-300 mb-6 text-sm leading-relaxed">{mensaje}</p>
@@ -336,6 +412,7 @@ export default function EscanearPage() {
                         {/* Botón Ver Mi Historial */}
                         <button
                           onClick={() => {
+                            isProcessingRef.current = false
                             setTab('historial')
                             setEstado('idle')
                           }}
@@ -345,11 +422,20 @@ export default function EscanearPage() {
                           Ver Mi Historial de Asistencias
                         </button>
 
+                        {/* Botón Volver al Escáner */}
+                        <button
+                          onClick={reintentar}
+                          className="w-full flex justify-center items-center gap-2 bg-slate-700/90 hover:bg-slate-600 text-white font-medium py-3 px-4 rounded-xl transition-all active:scale-95 border border-slate-600/60 text-sm"
+                        >
+                          <Camera className="w-4 h-4 text-emerald-400" />
+                          Volver al Escáner
+                        </button>
+
                         {/* Botón Cerrar Sesión */}
                         <form action={logout}>
                           <button
                             type="submit"
-                            className="w-full flex justify-center items-center gap-2 bg-slate-700/80 hover:bg-slate-700 text-slate-200 font-medium py-3 px-4 rounded-xl transition-all active:scale-95 border border-slate-600/50 text-sm"
+                            className="w-full flex justify-center items-center gap-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 font-medium py-2.5 px-4 rounded-xl transition-all active:scale-95 border border-slate-700/50 text-sm"
                           >
                             <LogOut className="w-4 h-4" />
                             Cerrar Sesión
@@ -494,6 +580,8 @@ export default function EscanearPage() {
                 </p>
                 <button
                   onClick={() => {
+                    isProcessingRef.current = false
+                    setEstado('idle')
                     setTab('escanear')
                     setEscaneando(true)
                   }}
@@ -515,6 +603,7 @@ export default function EscanearPage() {
           onClick={() => {
             setTab('escanear')
             if (estado !== 'processing') {
+              isProcessingRef.current = false
               setEscaneando(true)
               setEstado('idle')
             }

@@ -149,6 +149,19 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={isPending}
+                onClick={() => {
+                  try {
+                    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
+                    if (AudioCtx) {
+                      if (!(window as any).__qrAudioCtx || (window as any).__qrAudioCtx.state === 'closed') {
+                        ;(window as any).__qrAudioCtx = new AudioCtx()
+                      }
+                      if ((window as any).__qrAudioCtx.state === 'suspended') {
+                        ;(window as any).__qrAudioCtx.resume().catch(() => {})
+                      }
+                    }
+                  } catch (e) {}
+                }}
                 className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold py-4 px-4 rounded-2xl shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all duration-200 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center mt-6 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               >
                 {isPending ? (
