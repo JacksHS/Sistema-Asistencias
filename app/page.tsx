@@ -1,16 +1,28 @@
 'use client'
 
-import { useState, useEffect, useActionState } from 'react'
+import { useState, useEffect, useActionState, useRef } from 'react'
 import { login } from '@/actions/auth'
 import { Lock, User, KeyRound, Loader2, ShieldCheck, ShieldAlert, Eye, EyeOff, Clock, RotateCw } from 'lucide-react'
 
 export default function LoginPage() {
+  const [usuario, setUsuario] = useState<string>('')
+  const [password, setPassword] = useState<string>('')
   const [deviceHash, setDeviceHash] = useState<string>('')
   const [deviceUuid, setDeviceUuid] = useState<string>('')
   const [showPassword, setShowPassword] = useState(false)
   const [isClientReady, setIsClientReady] = useState(false)
   const [showExpiredNotice, setShowExpiredNotice] = useState(false)
   const [state, formAction, isPending] = useActionState(login, { error: '' })
+  const passwordInputRef = useRef<HTMLInputElement>(null)
+
+  // Cuando ocurre un error de login, borrar solo la contraseña y enfocar el campo de contraseña
+  // manteniendo el usuario intacto para no obligar a reescribirlo
+  useEffect(() => {
+    if (state?.error && !isPending) {
+      setPassword('')
+      passwordInputRef.current?.focus()
+    }
+  }, [state, isPending])
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.location.search.includes('expired=1')) {
@@ -125,7 +137,7 @@ export default function LoginPage() {
 
           {/* Formulario */}
           <div className="p-8 bg-white">
-            <form action={formAction} className="space-y-6">
+            <form action={formAction} onReset={(e) => e.preventDefault()} className="space-y-6">
               
               {/* Campos Ocultos para Huella Híbrida */}
               <input type="hidden" name="deviceHash" value={deviceHash} />
@@ -148,12 +160,13 @@ export default function LoginPage() {
                     type="text"
                     name="usuario"
                     required
+                    value={usuario}
                     placeholder="usuario"
                     pattern="[a-zA-Z0-9_]+"
                     maxLength={20}
                     title="Solo letras, números y guión bajo. Sin espacios ni símbolos."
                     onChange={(e) => {
-                      e.target.value = e.target.value.replace(/[^a-zA-Z0-9_]/g, '')
+                      setUsuario(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))
                     }}
                     className="block w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-slate-300 hover:bg-white transition-all duration-200 font-medium placeholder:font-normal placeholder:text-slate-400"
                   />
@@ -167,9 +180,12 @@ export default function LoginPage() {
                     <KeyRound className="h-5 w-5 text-slate-400 group-focus-within:text-blue-500 transition-colors duration-200" />
                   </div>
                   <input
+                    ref={passwordInputRef}
                     type={showPassword ? 'text' : 'password'}
                     name="password"
                     required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     className="block w-full pl-11 pr-12 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-slate-300 hover:bg-white transition-all duration-200 font-medium placeholder:font-normal placeholder:text-slate-400"
                   />
