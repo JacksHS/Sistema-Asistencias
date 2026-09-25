@@ -130,7 +130,7 @@ export async function login(prevState: any, formData: FormData) {
       }
     }
 
-    // 4. Crear sesión para USER (2 minutos)
+    // 4. Crear sesión para USER (3 minutos)
     await createSession(usuario.id, usuario.rol)
     redirect('/empleado/escanear')
   }

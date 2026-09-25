@@ -2,16 +2,21 @@
 
 import { useState, useEffect, useActionState } from 'react'
 import { login } from '@/actions/auth'
-import { Lock, User, KeyRound, Loader2, ShieldCheck, ShieldAlert, Eye, EyeOff } from 'lucide-react'
+import { Lock, User, KeyRound, Loader2, ShieldCheck, ShieldAlert, Eye, EyeOff, Clock, RotateCw } from 'lucide-react'
 
 export default function LoginPage() {
   const [deviceHash, setDeviceHash] = useState<string>('')
   const [deviceUuid, setDeviceUuid] = useState<string>('')
   const [showPassword, setShowPassword] = useState(false)
   const [isClientReady, setIsClientReady] = useState(false)
+  const [showExpiredNotice, setShowExpiredNotice] = useState(false)
   const [state, formAction, isPending] = useActionState(login, { error: '' })
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.search.includes('expired=1')) {
+      setShowExpiredNotice(true)
+    }
+
     const initializeDevice = async () => {
       try {
         // 1. Obtener o generar UUID de forma segura (randomUUID falla en HTTP local)
@@ -64,7 +69,40 @@ export default function LoginPage() {
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_40%,_#0f172a_100%)] pointer-events-none" />
       
       <div className="w-full max-w-md relative z-10 flex flex-col items-center">
-        {/* Tarjeta Principal de Login */}
+        {showExpiredNotice ? (
+          /* Pantalla Amigable de Tiempo de Sesión Culminado */
+          <div className="w-full bg-white rounded-2xl shadow-2xl overflow-hidden border border-white/10 ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-8 text-center text-white relative overflow-hidden">
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/20 via-transparent to-transparent pointer-events-none" />
+              <div className="relative z-10 mx-auto bg-gradient-to-br from-slate-700 to-slate-900 w-16 h-16 rounded-full flex items-center justify-center mb-4 border border-amber-500/40 ring-4 ring-amber-500/20 shadow-lg shadow-amber-500/20">
+                <Clock className="w-8 h-8 text-amber-400" />
+              </div>
+              <h1 className="text-2xl font-bold relative z-10">Tiempo de Sesión Culminado</h1>
+              <p className="text-slate-300 text-sm mt-1.5 relative z-10 font-normal">Protección automática de cuenta</p>
+            </div>
+
+            <div className="p-8 bg-white text-center space-y-6">
+              <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-4 text-slate-700 text-sm leading-relaxed">
+                El tiempo de tu sesión se ha culminado por seguridad. Por favor, <span className="font-semibold text-slate-900">vuelve a registrar tu sesión</span> para continuar.
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowExpiredNotice(false)
+                  if (typeof window !== 'undefined' && window.history?.replaceState) {
+                    window.history.replaceState({}, '', '/')
+                  }
+                }}
+                className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold py-4 px-4 rounded-2xl shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all duration-200 active:scale-[0.98] flex justify-center items-center gap-2"
+              >
+                <RotateCw className="w-5 h-5" />
+                Volver a Registrar mi Sesión
+              </button>
+            </div>
+          </div>
+        ) : (
+        /* Tarjeta Principal de Login */
         <div className="w-full bg-white rounded-2xl shadow-2xl overflow-hidden border border-white/10 ring-1 ring-black/5">
           
           {/* Cabecera */}
@@ -176,6 +214,7 @@ export default function LoginPage() {
             </form>
           </div>
         </div>
+        )}
 
         {/* Texto ligero, suave y difuminado por fuera en el fondo oscuro */}
         <div className="w-full mt-4 px-2 flex items-center justify-between text-[11px] text-slate-400/60 select-none tracking-wide font-light">

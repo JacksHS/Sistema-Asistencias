@@ -43,10 +43,10 @@ export async function decrypt(session: string | undefined = '') {
 }
 
 export async function createSession(userId: string, rol: string, sessionId?: string) {
-  // Administrador: 10 minutos | Trabajador / Estándar: 2 minutos
-  const durationMs = rol === 'ADMIN' ? 10 * 60 * 1000 : 2 * 60 * 1000
+  // Administrador: 10 minutos | Trabajador / Estándar: 3 minutos
+  const durationMs = rol === 'ADMIN' ? 10 * 60 * 1000 : 3 * 60 * 1000
   const maxAgeSeconds = Math.floor(durationMs / 1000)
-  const expiresInJWT = rol === 'ADMIN' ? '10m' : '2m'
+  const expiresInJWT = rol === 'ADMIN' ? '10m' : '3m'
 
   const expiresAt = new Date(Date.now() + durationMs)
   const session = await encrypt({ userId, rol, sessionId, expiresAt }, expiresInJWT)

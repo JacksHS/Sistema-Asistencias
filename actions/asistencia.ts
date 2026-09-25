@@ -11,7 +11,7 @@ export async function registrarAsistencia(tokenEscaneado: string) {
   // 1. Verificar la sesión ANTES de tocar el candado (evita inconsistencia en finally)
   const session = await getSession()
   if (!session || session.rol !== 'USER') {
-    return { error: 'No autorizado' }
+    return { error: 'El tiempo de sesión se ha culminado. Vuelva a iniciar sesión.', sessionExpired: true }
   }
 
   const usuarioId = session.userId as string
@@ -149,7 +149,7 @@ export async function registrarAsistencia(tokenEscaneado: string) {
 export async function obtenerResumenEmpleado() {
   const session = await getSession()
   if (!session || session.rol !== 'USER') {
-    return { error: 'No autorizado' }
+    return { error: 'El tiempo de sesión se ha culminado.', sessionExpired: true }
   }
 
   const usuarioId = session.userId as string

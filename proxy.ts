@@ -18,9 +18,19 @@ export default async function proxy(req: NextRequest) {
   const cookie = req.cookies.get('session')?.value
   const session = await decrypt(cookie)
 
-  // 2. Redirigir si no está autenticado y la ruta es privada
+  // 1.1 Si es una invocación de Server Action (Next-Action / POST) y la sesión expiró,
+  // permitir que la Server Action responda limpiamente (ej. { sessionExpired: true } o redirect de logout)
+  // en lugar de romper el protocolo RSC de Next.js/Vercel con un 307 crudo en el middleware.
+  const isServerAction = req.headers.has('next-action') || req.method === 'POST'
+  if (!isPublicRoute && !session && isServerAction) {
+    return NextResponse.next()
+  }
+
+  // 2. Redirigir si no está autenticado y la ruta es privada (con ?expired=1 para mostrar la pantalla amigable)
   if (!isPublicRoute && !session) {
-    const redirectRes = NextResponse.redirect(new URL('/', req.nextUrl))
+    const expiredUrl = new URL('/', req.nextUrl)
+    expiredUrl.searchParams.set('expired', '1')
+    const redirectRes = NextResponse.redirect(expiredUrl)
     if (cookie) {
       redirectRes.cookies.delete('session')
     }

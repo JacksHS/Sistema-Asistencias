@@ -24,6 +24,10 @@ export default function EscanearPage() {
   const [mensaje, setMensaje] = useState('')
   const [tipoMarca, setTipoMarca] = useState<'ENTRADA' | 'SALIDA' | null>(null)
   
+  // Control de expiración de sesión (3 minutos para trabajadores)
+  const [sesionExpirada, setSesionExpirada] = useState(false)
+  const sessionExpiresAtRef = useRef<number>(Date.now() + 3 * 60 * 1000)
+
   // Resumen del empleado (Estado de hoy e Historial 7 días)
   const [resumen, setResumen] = useState<any>(null)
   const [cargandoResumen, setCargandoResumen] = useState(true)
@@ -32,6 +36,13 @@ export default function EscanearPage() {
   const isProcessingRef = useRef(false)
   const audioCtxRef = useRef<AudioContext | null>(null)
   const scanAudioRef = useRef<HTMLAudioElement | null>(null)
+
+  const activarPantallaSesionExpirada = () => {
+    isProcessingRef.current = false
+    setEscaneando(false)
+    setEstado('idle')
+    setSesionExpirada(true)
+  }
 
   // Sonido de reconocimiento QR (Persiste en EscanearPage para que NO se corte cuando <Scanner /> se desmonta al pasar a 'processing')
   const playQrBeep = () => {
@@ -96,26 +107,55 @@ export default function EscanearPage() {
 
   // Cargar estado e historial del trabajador
   const cargarResumen = async () => {
+    if (Date.now() >= sessionExpiresAtRef.current) {
+      activarPantallaSesionExpirada()
+      return
+    }
     try {
       setCargandoResumen(true)
-      const data = await obtenerResumenEmpleado()
+      const data: any = await obtenerResumenEmpleado()
+      if (data?.sessionExpired || data?.error?.includes('culminado') || data?.error?.includes('No autorizado')) {
+        activarPantallaSesionExpirada()
+        return
+      }
       if (data && !data.error) {
         setResumen(data)
       }
     } catch (e) {
-      console.error("Error cargando resumen de asistencia:", e)
+      if (Date.now() >= sessionExpiresAtRef.current) {
+        activarPantallaSesionExpirada()
+      } else {
+        console.error("Error cargando resumen de asistencia:", e)
+      }
     } finally {
       setCargandoResumen(false)
     }
   }
 
   useEffect(() => {
+    sessionExpiresAtRef.current = Date.now() + 3 * 60 * 1000
     cargarResumen()
+
+    // Temporizador de 3 minutos + verificación al desbloquear pantalla del celular
+    const checkExpiration = () => {
+      if (Date.now() >= sessionExpiresAtRef.current) {
+        activarPantallaSesionExpirada()
+      }
+    }
+
+    const sessionTimer = setTimeout(() => {
+      activarPantallaSesionExpirada()
+    }, 3 * 60 * 1000)
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        checkExpiration()
+      }
+    }
 
     // Inicializar y pre-desbloquear el audio para móviles en el primer toque
     if (typeof window !== 'undefined') {
       try {
-        // Extraemos el mismo recurso de audio del escáner pero en un ref que NO se destruye al desmontar la cámara
         const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
         if (AudioCtx && !audioCtxRef.current) {
           audioCtxRef.current = new AudioCtx()
@@ -133,17 +173,29 @@ export default function EscanearPage() {
       window.addEventListener('pointerdown', unlockAudio, { passive: true })
       window.addEventListener('touchstart', unlockAudio, { passive: true })
       window.addEventListener('click', unlockAudio, { passive: true })
+      document.addEventListener('visibilitychange', handleVisibilityOrFocus)
+      window.addEventListener('focus', checkExpiration)
 
       return () => {
+        clearTimeout(sessionTimer)
         window.removeEventListener('pointerdown', unlockAudio)
         window.removeEventListener('touchstart', unlockAudio)
         window.removeEventListener('click', unlockAudio)
+        document.removeEventListener('visibilitychange', handleVisibilityOrFocus)
+        window.removeEventListener('focus', checkExpiration)
       }
     }
+
+    return () => clearTimeout(sessionTimer)
   }, [])
 
   const handleScan = async (detectedCodes: any[]) => {
     if (isProcessingRef.current || !detectedCodes || detectedCodes.length === 0) return
+
+    if (Date.now() >= sessionExpiresAtRef.current) {
+      activarPantallaSesionExpirada()
+      return
+    }
     
     isProcessingRef.current = true
     const qrData = detectedCodes[0].rawValue
@@ -158,13 +210,18 @@ export default function EscanearPage() {
     try { if (typeof window !== 'undefined' && typeof navigator.vibrate === 'function') navigator.vibrate([100]) } catch(e) {}
 
     try {
-      const [res] = await Promise.all([
+      const [res]: [any, any] = await Promise.all([
         registrarAsistencia(qrData),
         new Promise(resolve => setTimeout(resolve, 800))
       ])
       
       // Ahora que el sonido del escáner ya terminó de reproducirse por completo, apagamos la cámara
       setEscaneando(false)
+
+      if (res?.sessionExpired || res?.error?.includes('culminado') || res?.error?.includes('No autorizado')) {
+        activarPantallaSesionExpirada()
+        return
+      }
 
       if (res.error) {
         try { if (typeof window !== 'undefined' && typeof navigator.vibrate === 'function') navigator.vibrate([300, 100, 300]) } catch(e) {}
@@ -192,8 +249,12 @@ export default function EscanearPage() {
       }
     } catch (e) {
       setEscaneando(false)
-      setEstado('error')
-      setMensaje('Error de red al registrar asistencia')
+      if (Date.now() >= sessionExpiresAtRef.current) {
+        activarPantallaSesionExpirada()
+      } else {
+        setEstado('error')
+        setMensaje('Error de red al registrar asistencia')
+      }
     } finally {
       // Liberar siempre el candado cuando termina el procesamiento (la cámara ya está apagada con escaneando=false)
       // Así cuando el trabajador vuelva a abrir el escáner para marcar su salida o verificar su estado, siempre procesará el QR
@@ -202,11 +263,91 @@ export default function EscanearPage() {
   }
 
   const reintentar = () => {
+    if (Date.now() >= sessionExpiresAtRef.current) {
+      activarPantallaSesionExpirada()
+      return
+    }
     isProcessingRef.current = false
     setEstado('idle')
     setMensaje('')
     setTipoMarca(null)
     setEscaneando(true)
+  }
+
+  // Pantalla de Sesión Culminada con el mismo fondo de puntitos del Login
+  if (sesionExpirada) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 relative overflow-hidden">
+        {/* Textura de puntos sutil — idéntica al Login */}
+        <div 
+          className="absolute inset-0 opacity-[0.45] pointer-events-none"
+          style={{
+            backgroundImage: 'radial-gradient(circle, #64748b 1.5px, transparent 1.5px)',
+            backgroundSize: '24px 24px'
+          }}
+        />
+        {/* Viñeta para suavizar los bordes de la textura */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_40%,_#0f172a_100%)] pointer-events-none" />
+
+        <motion.div
+          initial={{ opacity: 0, y: 18, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.3, ease: 'easeOut' }}
+          className="w-full max-w-md relative z-10 flex flex-col items-center"
+        >
+          <div className="w-full bg-white rounded-2xl shadow-2xl overflow-hidden border border-white/10 ring-1 ring-black/5">
+            {/* Cabecera oscura con el estilo del Login */}
+            <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-8 text-center text-white relative overflow-hidden">
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/20 via-transparent to-transparent pointer-events-none" />
+              <div className="relative z-10 mx-auto bg-gradient-to-br from-slate-700 to-slate-900 w-16 h-16 rounded-full flex items-center justify-center mb-4 border border-amber-500/40 ring-4 ring-amber-500/20 shadow-lg shadow-amber-500/20">
+                <Clock className="w-8 h-8 text-amber-400" />
+              </div>
+              <h1 className="text-2xl font-bold relative z-10">Tiempo de Sesión Culminado</h1>
+              <p className="text-slate-300 text-sm mt-1.5 relative z-10 font-normal">
+                Protección automática de cuenta
+              </p>
+            </div>
+
+            {/* Cuerpo del mensaje */}
+            <div className="p-8 bg-white text-center space-y-6">
+              <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-4 text-slate-700 text-sm leading-relaxed">
+                El tiempo de tu sesión ha culminado por seguridad. Por favor, <span className="font-semibold text-slate-900">vuelve a registrar tu sesión</span> o recarga la página para continuar.
+              </div>
+
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.location.href = '/'
+                  }}
+                  className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold py-4 px-4 rounded-2xl shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all duration-200 active:scale-[0.98] flex justify-center items-center gap-2"
+                >
+                  <LogOut className="w-5 h-5" />
+                  Volver a Iniciar Sesión
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.location.href = '/'
+                  }}
+                  className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-3.5 px-4 rounded-2xl transition-all duration-200 active:scale-[0.98] flex justify-center items-center gap-2 text-sm border border-slate-200"
+                >
+                  <RotateCw className="w-4 h-4 text-slate-500" />
+                  Recargar Página
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Pie de página idéntico al Login */}
+          <div className="w-full mt-4 px-2 flex items-center justify-between text-[11px] text-slate-400/60 select-none tracking-wide font-light">
+            <span className="font-mono text-slate-400/70">v1.0.5</span>
+            <span className="text-slate-400/60">© 2026 JacksHS • Derechos Reservados</span>
+          </div>
+        </motion.div>
+      </main>
+    )
   }
 
   // Spinner de procesamiento
