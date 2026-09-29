@@ -4,18 +4,18 @@ const isDev = process.env.NODE_ENV !== 'production';
 
 const cspHeader = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+  "script-src 'self' 'unsafe-eval' 'unsafe-inline' 'wasm-unsafe-eval' https://fastly.jsdelivr.net https://cdn.jsdelivr.net",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data:",
   "font-src 'self' data:",
   "media-src 'self' blob: data:",
-  "connect-src 'self'",
+  "connect-src 'self' https://fastly.jsdelivr.net https://cdn.jsdelivr.net",
   "worker-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",
-  "upgrade-insecure-requests"
+  ...(isDev ? [] : ["upgrade-insecure-requests"])
 ].join('; ');
 
 const securityHeaders = [

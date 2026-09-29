@@ -159,12 +159,13 @@ function EditWorkerModal({ isOpen, worker, onClose, onSave, onActivate, isPendin
   isOpen: boolean
   worker: { id: string; nombre: string; usuario: string; activo?: boolean; horarioEspecial?: string } | null
   onClose: () => void
-  onSave: (nombre: string, horarioEspecial?: string) => void
+  onSave: (nombre: string, horarioEspecial?: string, newPassword?: string) => void
   onActivate?: () => void
   isPending: boolean
 }) {
   const [nombre, setNombre] = useState('')
   const [horarioEspecial, setHorarioEspecial] = useState('')
+  const [newPassword, setNewPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
 
   // Rellenar campos cuando se abre el modal
@@ -172,6 +173,7 @@ function EditWorkerModal({ isOpen, worker, onClose, onSave, onActivate, isPendin
     if (worker) {
       setNombre(worker.nombre)
       setHorarioEspecial(worker.horarioEspecial || '')
+      setNewPassword('')
       setShowPassword(false)
     }
   }, [worker])
@@ -184,7 +186,11 @@ function EditWorkerModal({ isOpen, worker, onClose, onSave, onActivate, isPendin
       toast.error('El nombre debe tener al menos 3 letras')
       return
     }
-    onSave(nombre.trim(), horarioEspecial.trim())
+    if (newPassword.trim() && newPassword.trim().length < 6) {
+      toast.error('La nueva contraseña debe tener al menos 6 caracteres')
+      return
+    }
+    onSave(nombre.trim(), horarioEspecial.trim(), newPassword.trim() || undefined)
   }
 
   return (
@@ -263,6 +269,8 @@ function EditWorkerModal({ isOpen, worker, onClose, onSave, onActivate, isPendin
               <input
                 type={showPassword ? 'text' : 'password'}
                 name="newPassword"
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
                 minLength={6}
                 maxLength={50}
                 className="w-full px-4 py-3 pr-12 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all text-slate-800 font-medium hover:border-gray-300"
@@ -495,13 +503,16 @@ export function WorkerActions({
   const [isPending, startTransition] = useTransition()
   const [modalState, setModalState] = useState<{type: 'delete' | 'reset' | 'edit' | null}>({type: null})
 
-  const handleEdit = (newName: string, newHorario?: string) => {
-    if (!newName || (newName === currentName && newHorario === currentHorarioEspecial)) {
+  const handleEdit = (newName: string, newHorario?: string, newPassword?: string) => {
+    if (
+      !newName || 
+      (newName === currentName && newHorario === currentHorarioEspecial && !newPassword)
+    ) {
       setModalState({ type: null })
       return
     }
     startTransition(async () => {
-      const res = await editarTrabajador(id, newName, newHorario)
+      const res = await editarTrabajador(id, newName, newHorario, newPassword)
       if (res.error) toast.error(res.error)
       if (res.success) {
         toast.success(res.success)

@@ -183,7 +183,12 @@ export async function activarTrabajador(id: string) {
 }
 
 
-export async function editarTrabajador(id: string, nombre_completo: string, horarioEspecial?: string) {
+export async function editarTrabajador(
+  id: string, 
+  nombre_completo: string, 
+  horarioEspecial?: string,
+  newPassword?: string
+) {
   const { getSession } = await import('@/lib/session')
   const session = await getSession()
   if (!session || session.rol !== 'ADMIN') return { error: 'No autorizado' }
@@ -192,8 +197,23 @@ export async function editarTrabajador(id: string, nombre_completo: string, hora
     return { error: 'El nombre debe tener al menos 3 letras' }
   }
 
+  if (newPassword && newPassword.trim()) {
+    if (newPassword.trim().length < 6) {
+      return { error: 'La nueva contraseña debe tener al menos 6 caracteres' }
+    }
+  }
+
   try {
-    await db.orm.public.Usuario.where({ id }).update({ nombre_completo })
+    const updateData: { nombre_completo: string; password?: string } = {
+      nombre_completo: nombre_completo.trim()
+    }
+
+    if (newPassword && newPassword.trim()) {
+      const hashedPassword = await bcrypt.hash(newPassword.trim(), 10)
+      updateData.password = hashedPassword
+    }
+
+    await db.orm.public.Usuario.where({ id }).update(updateData)
     
     // Actualizar horario especial si se pasó el parámetro
     if (horarioEspecial !== undefined) {
@@ -209,7 +229,7 @@ export async function editarTrabajador(id: string, nombre_completo: string, hora
     }
 
     revalidatePath('/admin/dashboard')
-    return { success: 'Datos actualizados' }
+    return { success: 'Datos actualizados con éxito' }
   } catch (error) {
     console.error('Error al editar:', error)
     return { error: 'No se pudo editar al trabajador' }
