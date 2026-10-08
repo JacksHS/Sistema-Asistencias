@@ -181,3 +181,67 @@ export async function logout() {
   await deleteSession()
   redirect('/')
 }
+
+export async function cambiarPasswordPropio(arg1: any, arg2?: FormData) {
+  const formData = arg2 instanceof FormData ? arg2 : arg1 instanceof FormData ? arg1 : null
+  if (!formData) {
+    return { error: 'Datos del formulario no válidos' }
+  }
+
+  const { getSession } = await import('@/lib/session')
+  const session = await getSession()
+
+  if (!session || !session.userId) {
+    return { error: 'Sesión no válida o expirada. Por favor vuelve a iniciar sesión.' }
+  }
+
+  const currentPassword = (formData.get('currentPassword') as string || '').trim()
+  const newPassword = (formData.get('newPassword') as string || '').trim()
+
+  if (!currentPassword) {
+    return { error: 'Debes ingresar tu contraseña actual' }
+  }
+
+  if (!newPassword) {
+    return { error: 'Debes ingresar la nueva contraseña' }
+  }
+
+  if (newPassword.length < 6) {
+    return { error: 'La nueva contraseña debe tener al menos 6 caracteres' }
+  }
+
+  if (newPassword.length > 50) {
+    return { error: 'La nueva contraseña no puede exceder los 50 caracteres' }
+  }
+
+  if (currentPassword === newPassword) {
+    return { error: 'La nueva contraseña no puede ser igual a la contraseña actual' }
+  }
+
+  try {
+    const usuario = await db.orm.public.Usuario.where({ id: session.userId as string }).first()
+    if (!usuario) {
+      return { error: 'Usuario no encontrado' }
+    }
+
+    if (usuario.activo === false) {
+      return { error: 'Esta cuenta se encuentra inactiva. Contacta al administrador.' }
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, usuario.password)
+    if (!isMatch) {
+      return { error: 'La contraseña actual es incorrecta' }
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10)
+    await db.orm.public.Usuario.where({ id: usuario.id }).update({
+      password: hashedPassword
+    })
+
+    return { success: '¡Contraseña actualizada exitosamente!' }
+  } catch (error) {
+    console.error('Error al cambiar contraseña:', error)
+    return { error: 'Ocurrió un error al actualizar la contraseña. Intenta nuevamente.' }
+  }
+}
+

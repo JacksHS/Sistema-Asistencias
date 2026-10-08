@@ -10,12 +10,18 @@ import {
   ClipboardList, 
   Clock, 
   Calendar, 
-  RotateCw
+  RotateCw,
+  Lock,
+  Eye,
+  EyeOff,
+  Loader2,
+  X
 } from 'lucide-react'
 import { registrarAsistencia, obtenerResumenEmpleado } from '@/actions/asistencia'
 import { motion, AnimatePresence } from 'framer-motion'
 import confetti from 'canvas-confetti'
-import { logout } from '@/actions/auth'
+import { logout, cambiarPasswordPropio } from '@/actions/auth'
+import { toast } from 'sonner'
 
 export default function EscanearPage() {
   const [tab, setTab] = useState<'escanear' | 'historial'>('escanear')
@@ -31,6 +37,84 @@ export default function EscanearPage() {
   // Resumen del empleado (Estado de hoy e Historial 7 días)
   const [resumen, setResumen] = useState<any>(null)
   const [cargandoResumen, setCargandoResumen] = useState(true)
+
+  // Estados para modal de cambio de contraseña
+  const [modalPasswordOpen, setModalPasswordOpen] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [passwordLoading, setPasswordLoading] = useState(false)
+  const [passwordError, setPasswordError] = useState('')
+  const [passwordSuccess, setPasswordSuccess] = useState('')
+
+  const cerrarModalPassword = () => {
+    if (passwordLoading) return
+    setModalPasswordOpen(false)
+    setCurrentPassword('')
+    setNewPassword('')
+    setShowCurrentPassword(false)
+    setShowNewPassword(false)
+    setPasswordError('')
+    setPasswordSuccess('')
+  }
+
+  const handleCambiarPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setPasswordError('')
+    setPasswordSuccess('')
+
+    if (!currentPassword.trim()) {
+      setPasswordError('Ingresa tu contraseña actual')
+      return
+    }
+
+    if (!newPassword.trim()) {
+      setPasswordError('Ingresa la nueva contraseña')
+      return
+    }
+
+    if (newPassword.trim().length < 6) {
+      setPasswordError('La nueva contraseña debe tener al menos 6 caracteres')
+      return
+    }
+
+    if (newPassword.trim().length > 50) {
+      setPasswordError('La nueva contraseña no puede exceder 50 caracteres')
+      return
+    }
+
+    if (currentPassword === newPassword) {
+      setPasswordError('La nueva contraseña debe ser diferente a la actual')
+      return
+    }
+
+    try {
+      setPasswordLoading(true)
+      const formData = new FormData()
+      formData.append('currentPassword', currentPassword)
+      formData.append('newPassword', newPassword)
+
+      const res = await cambiarPasswordPropio(formData)
+      if (res?.error) {
+        setPasswordError(res.error)
+        toast.error(res.error)
+      } else if (res?.success) {
+        setPasswordSuccess(res.success)
+        toast.success(res.success)
+        setCurrentPassword('')
+        setNewPassword('')
+        setTimeout(() => {
+          cerrarModalPassword()
+        }, 1600)
+      }
+    } catch (err) {
+      setPasswordError('Error inesperado al conectar con el servidor')
+      toast.error('Error al actualizar contraseña')
+    } finally {
+      setPasswordLoading(false)
+    }
+  }
 
   // Ref para evitar múltiples escaneos por milisegundo (Closure problem)
   const isProcessingRef = useRef(false)
@@ -400,13 +484,27 @@ export default function EscanearPage() {
         </div>
 
         <div className="flex items-center gap-2 relative z-10">
+          <button
+            type="button"
+            onClick={() => {
+              setPasswordError('')
+              setPasswordSuccess('')
+              setModalPasswordOpen(true)
+            }}
+            className="p-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700/60 rounded-xl transition-all active:scale-95 flex items-center justify-center cursor-pointer"
+            title="Cambiar Contraseña"
+            aria-label="Cambiar Contraseña"
+          >
+            <Lock className="w-4 h-4 text-slate-300 hover:text-amber-400 pointer-events-none" />
+          </button>
+
           <form action={logout}>
             <button 
               type="submit"
-              className="p-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700/60 rounded-xl transition-all active:scale-95"
+              className="p-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700/60 rounded-xl transition-all active:scale-95 cursor-pointer"
               title="Cerrar Sesión"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-4 h-4 pointer-events-none" />
             </button>
           </form>
         </div>
@@ -780,7 +878,194 @@ export default function EscanearPage() {
           </div>
           <span className="text-[11px] tracking-wide">Mi Historial</span>
         </button>
+
+        {/* Botón 3: Cambiar Contraseña */}
+        <button
+          type="button"
+          onClick={() => {
+            setPasswordError('')
+            setPasswordSuccess('')
+            setModalPasswordOpen(true)
+            try { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(30) } catch(e) {}
+          }}
+          className="flex flex-col items-center gap-1 py-1 px-4 rounded-xl transition-all active:scale-95 text-slate-400 hover:text-slate-200 font-normal cursor-pointer"
+          title="Cambiar contraseña"
+        >
+          <div className="p-1 rounded-lg transition-colors hover:bg-slate-800">
+            <Lock className="w-5 h-5 pointer-events-none" />
+          </div>
+          <span className="text-[11px] tracking-wide pointer-events-none">Contraseña</span>
+        </button>
       </nav>
+
+      {/* Modal Cambiar Contraseña */}
+      <AnimatePresence>
+        {modalPasswordOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop con desenfoque */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={cerrarModalPassword}
+              className="absolute inset-0 bg-black/75 backdrop-blur-sm cursor-pointer"
+            />
+
+            {/* Tarjeta del Modal */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ duration: 0.2 }}
+              className="relative bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl z-10 text-white"
+            >
+              {/* Botón cerrar X */}
+              <button
+                type="button"
+                onClick={cerrarModalPassword}
+                disabled={passwordLoading}
+                className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                title="Cerrar"
+              >
+                <X className="w-4 h-4 pointer-events-none" />
+              </button>
+
+              {/* Encabezado */}
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-white leading-tight">Cambiar Contraseña</h3>
+                  <p className="text-slate-400 text-xs">Actualiza tu clave de acceso personal</p>
+                </div>
+              </div>
+
+              {/* Banner de error */}
+              {passwordError && (
+                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-300 text-xs flex items-start gap-2 animate-in fade-in duration-150">
+                  <XCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5 pointer-events-none" />
+                  <span>{passwordError}</span>
+                </div>
+              )}
+
+              {/* Banner de éxito */}
+              {passwordSuccess && (
+                <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs flex items-start gap-2 animate-in fade-in duration-150">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5 pointer-events-none" />
+                  <span>{passwordSuccess}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleCambiarPassword} className="space-y-4">
+                {/* Contraseña Actual */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Contraseña Actual
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showCurrentPassword ? 'text' : 'password'}
+                      value={currentPassword}
+                      onChange={e => setCurrentPassword(e.target.value)}
+                      required
+                      disabled={passwordLoading}
+                      placeholder="Ingresa tu contraseña actual"
+                      className="w-full px-3.5 py-2.5 pr-11 bg-slate-800/90 border border-slate-700 rounded-xl text-sm text-white placeholder:text-slate-500 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all font-medium disabled:opacity-50"
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setShowCurrentPassword(prev => !prev)
+                      }}
+                      className="absolute inset-y-0 right-0 flex items-center pr-3.5 pl-2 text-slate-400 hover:text-slate-200 transition-colors z-10 cursor-pointer"
+                      tabIndex={-1}
+                      title={showCurrentPassword ? "Ocultar contraseña" : "Ver contraseña"}
+                    >
+                      {showCurrentPassword ? (
+                        <EyeOff className="w-4 h-4 pointer-events-none" />
+                      ) : (
+                        <Eye className="w-4 h-4 pointer-events-none" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Nueva Contraseña */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Nueva Contraseña
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showNewPassword ? 'text' : 'password'}
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      maxLength={50}
+                      disabled={passwordLoading}
+                      placeholder="Mínimo 6 caracteres"
+                      className="w-full px-3.5 py-2.5 pr-11 bg-slate-800/90 border border-slate-700 rounded-xl text-sm text-white placeholder:text-slate-500 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all font-medium disabled:opacity-50"
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setShowNewPassword(prev => !prev)
+                      }}
+                      className="absolute inset-y-0 right-0 flex items-center pr-3.5 pl-2 text-slate-400 hover:text-slate-200 transition-colors z-10 cursor-pointer"
+                      tabIndex={-1}
+                      title={showNewPassword ? "Ocultar contraseña" : "Ver contraseña"}
+                    >
+                      {showNewPassword ? (
+                        <EyeOff className="w-4 h-4 pointer-events-none" />
+                      ) : (
+                        <Eye className="w-4 h-4 pointer-events-none" />
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1 pl-0.5">
+                    Mínimo 6 caracteres.
+                  </p>
+                </div>
+
+                {/* Botones de acción */}
+                <div className="flex items-center justify-end gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={cerrarModalPassword}
+                    disabled={passwordLoading}
+                    className="px-4 py-2.5 text-xs font-semibold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={passwordLoading}
+                    className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold text-slate-900 bg-amber-400 hover:bg-amber-300 rounded-xl transition-all shadow-md shadow-amber-400/20 active:scale-95 disabled:opacity-50 cursor-pointer"
+                  >
+                    {passwordLoading ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin pointer-events-none" />
+                        <span>Guardando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-3.5 h-3.5 pointer-events-none" />
+                        <span>Actualizar Contraseña</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   )

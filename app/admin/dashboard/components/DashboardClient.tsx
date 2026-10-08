@@ -115,16 +115,20 @@ function DeleteWorkerModal({
                   onChange={e => setPassword(e.target.value)}
                   required
                   placeholder="Tu contraseña de administrador"
-                  className="w-full px-3 py-2 pr-9 text-xs bg-white border border-red-300 rounded-lg outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 text-slate-800 font-medium"
+                  className="w-full px-3 py-2 pr-10 text-xs bg-white border border-red-300 rounded-lg outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 text-slate-800 font-medium"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-red-400 hover:text-red-700"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setShowPassword(prev => !prev)
+                  }}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 pl-2 text-red-500 hover:text-red-700 transition-colors z-10 cursor-pointer"
                   tabIndex={-1}
                   title={showPassword ? "Ocultar contraseña" : "Ver contraseña"}
                 >
-                  {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  {showPassword ? <EyeOff className="w-4 h-4 pointer-events-none" /> : <Eye className="w-4 h-4 pointer-events-none" />}
                 </button>
               </div>
             </div>
@@ -278,11 +282,15 @@ function EditWorkerModal({ isOpen, worker, onClose, onSave, onActivate, isPendin
               />
               <button
                 type="button"
-                onClick={() => setShowPassword(p => !p)}
-                className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 hover:text-gray-600 transition-colors"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setShowPassword(p => !p)
+                }}
+                className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 hover:text-gray-600 transition-colors z-10 cursor-pointer"
                 tabIndex={-1}
               >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                {showPassword ? <EyeOff className="w-5 h-5 pointer-events-none" /> : <Eye className="w-5 h-5 pointer-events-none" />}
               </button>
             </div>
             <p className="text-xs text-gray-400 mt-1.5 pl-1">Si dejas esto vacío, la contraseña actual no cambiará.</p>
@@ -436,11 +444,15 @@ export function CreateWorkerForm() {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(p => !p)}
-                  className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400 hover:text-gray-600 transition-colors"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setShowPassword(p => !p)
+                  }}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400 hover:text-gray-600 transition-colors z-10 cursor-pointer"
                   tabIndex={-1}
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? <EyeOff className="w-4 h-4 pointer-events-none" /> : <Eye className="w-4 h-4 pointer-events-none" />}
                 </button>
               </div>
             </div>
@@ -1372,11 +1384,6 @@ export function ManualAttendanceButton({ trabajadores }: { trabajadores: { id: s
     return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(now) // YYYY-MM-DD
   }
 
-  const getPeruMinDate = () => {
-    const d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-    return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(d)
-  }
-
   const getPeruCurrentTime = () => {
     const now = new Date()
     const parts = new Intl.DateTimeFormat('en-US', {
@@ -1436,7 +1443,7 @@ export function ManualAttendanceButton({ trabajadores }: { trabajadores: { id: s
                 </div>
                 <div>
                   <h3 className="font-bold text-lg text-gray-900 leading-tight">Registro Manual de Asistencia</h3>
-                  <p className="text-gray-500 text-xs">Por excepción (ej. batería agotada o daño de celular)</p>
+        
                 </div>
               </div>
 
@@ -1461,16 +1468,18 @@ export function ManualAttendanceButton({ trabajadores }: { trabajadores: { id: s
                 {/* Fecha y Hora en una sola fila con límites estrictos */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Fecha</label>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      Fecha <span className="text-[10px] text-amber-600 font-normal">(Solo hoy)</span>
+                    </label>
                     <input
                       type="date"
                       name="fecha"
                       value={fecha}
+                      readOnly
+                      min={getPeruCurrentDate()}
                       max={getPeruCurrentDate()}
-                      min={getPeruMinDate()}
-                      onChange={e => setFecha(e.target.value)}
                       required
-                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none text-xs text-slate-800 font-medium"
+                      className="w-full px-3 py-2 bg-gray-100 border border-gray-200 rounded-xl outline-none text-xs text-slate-700 font-medium cursor-not-allowed select-none"
                     />
                   </div>
                   <div>
@@ -1484,6 +1493,14 @@ export function ManualAttendanceButton({ trabajadores }: { trabajadores: { id: s
                       className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none text-xs text-slate-800 font-medium"
                     />
                   </div>
+                </div>
+
+                {/* Aviso explicativo del tipo de registro */}
+                <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-2.5 text-[11px] text-amber-900 flex items-start gap-2">
+                  <span className="shrink-0 text-base leading-none">💡</span>
+                  <span className="leading-snug">
+                  Si ya tiene la Entrada registrada, se registrará la <strong>Salida</strong>.
+                  </span>
                 </div>
 
                 {/* Motivo Estandarizado Fijo */}
@@ -1523,22 +1540,24 @@ export function ManualAttendanceButton({ trabajadores }: { trabajadores: { id: s
                       value={adminPassword}
                       onChange={e => setAdminPassword(e.target.value)}
                       placeholder="Ingresa tu contraseña para autorizar"
-                      className="w-full px-3.5 py-2.5 pr-10 text-xs font-semibold bg-white border border-amber-300 rounded-xl outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-slate-800 placeholder:text-gray-400 placeholder:font-normal shadow-inner"
+                      className="w-full px-3.5 py-2.5 pr-11 text-xs font-semibold bg-white border border-amber-300 rounded-xl outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-slate-800 placeholder:text-gray-400 placeholder:font-normal shadow-inner"
                     />
                     <button
                       type="button"
-                      onClick={() => setShowAdminPassword(!showAdminPassword)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-amber-600 hover:text-amber-800 transition-colors p-1"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setShowAdminPassword(prev => !prev)
+                      }}
+                      className="absolute inset-y-0 right-0 flex items-center pr-3.5 pl-2 text-amber-600 hover:text-amber-800 transition-colors z-10 cursor-pointer"
                       tabIndex={-1}
                       title={showAdminPassword ? "Ocultar contraseña" : "Ver contraseña"}
                     >
-                      {showAdminPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showAdminPassword ? <EyeOff className="w-4 h-4 pointer-events-none" /> : <Eye className="w-4 h-4 pointer-events-none" />}
                     </button>
                   </div>
 
-                  <p className="text-[11px] text-amber-900/90 font-medium leading-tight pl-0.5">
-                    🛡️ Ingresa tu contraseña de acceso para autorizar este registro manual y evitar registros no autorizados.
-                  </p>
+                  
                 </div>
 
                 {/* Botones de acción */}

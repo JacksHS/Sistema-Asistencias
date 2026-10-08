@@ -255,19 +255,22 @@ export async function crearAsistenciaManual(prevState: any, formData: FormData) 
     return { error: 'Debes ingresar tu contraseña de administrador para autorizar el registro' }
   }
 
-  // 1. Validar que la fecha y hora no sean en el futuro
+  // 1. Validar que la fecha sea estrictamente del día de hoy en Perú
+  const tzEnv = process.env.APP_TIMEZONE || process.env.TZ
+  const timeZone = (!tzEnv || tzEnv === ':UTC' || tzEnv.startsWith(':')) ? 'America/Lima' : tzEnv
+  const hoyPeru = new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date()) // YYYY-MM-DD
+  if (fecha !== hoyPeru) {
+    return { error: 'Solo se pueden registrar excepciones de asistencia para el día de hoy' }
+  }
+
+  // 2. Validar que la hora no sea en el futuro
   const nowServer = Date.now()
   const fechaHoraTarget = new Date(`${fecha}T${hora}:00-05:00`).getTime()
   if (isNaN(fechaHoraTarget)) {
     return { error: 'Formato de fecha u hora no válido' }
   }
   if (fechaHoraTarget > nowServer + 5 * 60 * 1000) { // Margen de 5 min por desfase de segundos
-    return { error: 'No puedes registrar una asistencia con fecha u hora en el futuro' }
-  }
-
-  // 2. Validar que la fecha no tenga más de 30 días de antigüedad
-  if (nowServer - fechaHoraTarget > 30 * 24 * 60 * 60 * 1000) {
-    return { error: 'La fecha no puede superar los 30 días de antigüedad' }
+    return { error: 'No puedes registrar una asistencia con hora en el futuro' }
   }
 
   try {
@@ -283,6 +286,26 @@ export async function crearAsistenciaManual(prevState: any, formData: FormData) 
     if (!usuario) return { error: 'Trabajador no encontrado' }
     if (usuario.activo === false) return { error: 'No se puede registrar asistencia manual a un trabajador inactivo' }
 
+    // 3. Validar marcas del día de hoy para este trabajador
+    const hoyStart = new Date(`${hoyPeru}T00:00:00-05:00`)
+    const hoyEnd = new Date(`${hoyPeru}T23:59:59.999-05:00`)
+    const asistenciasExistentes = await db.orm.public.Asistencia.where({ usuario_id: usuarioId }).all()
+    const asistenciasHoy = asistenciasExistentes.filter(a => {
+      const f = new Date(a.fecha_hora)
+      return f >= hoyStart && f <= hoyEnd
+    }).sort((a, b) => new Date(a.fecha_hora).getTime() - new Date(b.fecha_hora).getTime())
+
+    if (asistenciasHoy.length >= 2) {
+      return { error: 'Este trabajador ya tiene registradas tanto su Entrada como su Salida el día de hoy.' }
+    }
+
+    if (asistenciasHoy.length === 1) {
+      const horaPrimera = new Date(asistenciasHoy[0].fecha_hora).getTime()
+      if (fechaHoraTarget <= horaPrimera) {
+        return { error: 'La hora de salida manual debe ser posterior a la hora de entrada ya registrada.' }
+      }
+    }
+
     // Fecha en hora local de Perú (UTC-5)
     const fechaHoraIso = new Date(`${fecha}T${hora}:00-05:00`).toISOString()
     const manualId = `manual_${Date.now()}_${motivoClave}_none_${Math.random().toString(36).substring(2, 6)}`
@@ -293,8 +316,14 @@ export async function crearAsistenciaManual(prevState: any, formData: FormData) 
       fecha_hora: fechaHoraIso
     })
 
+    const esSalida = asistenciasHoy.length === 1
     revalidatePath('/admin/dashboard')
-    return { success: 'Asistencia manual registrada con éxito', error: '' }
+    return { 
+      success: esSalida 
+        ? 'Salida manual registrada con éxito' 
+        : 'Entrada manual registrada con éxito', 
+      error: '' 
+    }
   } catch (error: any) {
     console.error('Error al crear asistencia manual:', error)
     return { error: 'Ocurrió un error al registrar la asistencia manual. Intenta nuevamente.' }
