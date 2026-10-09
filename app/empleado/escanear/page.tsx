@@ -879,23 +879,7 @@ export default function EscanearPage() {
           <span className="text-[11px] tracking-wide">Mi Historial</span>
         </button>
 
-        {/* Botón 3: Cambiar Contraseña */}
-        <button
-          type="button"
-          onClick={() => {
-            setPasswordError('')
-            setPasswordSuccess('')
-            setModalPasswordOpen(true)
-            try { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(30) } catch(e) {}
-          }}
-          className="flex flex-col items-center gap-1 py-1 px-4 rounded-xl transition-all active:scale-95 text-slate-400 hover:text-slate-200 font-normal cursor-pointer"
-          title="Cambiar contraseña"
-        >
-          <div className="p-1 rounded-lg transition-colors hover:bg-slate-800">
-            <Lock className="w-5 h-5 pointer-events-none" />
-          </div>
-          <span className="text-[11px] tracking-wide pointer-events-none">Contraseña</span>
-        </button>
+        
       </nav>
 
       {/* Modal Cambiar Contraseña */}
